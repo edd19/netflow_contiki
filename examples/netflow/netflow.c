@@ -22,8 +22,21 @@
 
 #define MAX_PAYLOAD_LEN   30
 
+#define VERSION 0x00a
+#define DOMAIN_ID 1
+
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;
+
+struct nf_v10_hdr { 
+  u_int16_t version;    
+  u_int16_t length;
+  u_int32_t export_time;
+  u_int32_t seqence;
+  u_int32_t domain_id;
+};
+
+static struct nf_v10_hdr nf_hdr = {VERSION, 0, 0, 1, DOMAIN_ID};
 
 /*---------------------------------------------------------------------------*/
 PROCESS(netflow_client_process, "Netflow Client process");
@@ -58,10 +71,8 @@ PROCESS_THREAD(netflow_client_process, ev, data)
   udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT));
 
   /* send message to server */
-  char msg[MAX_PAYLOAD_LEN];
   while(1) {
-    sprintf(msg, "Hello world from client");
-    uip_udp_packet_sendto(client_conn, &msg, sizeof(msg),
+    uip_udp_packet_sendto(client_conn, &nf_hdr, sizeof(nf_hdr),
                           &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
     PRINTF("Message sent to netflow server\n");
 
