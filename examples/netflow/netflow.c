@@ -10,73 +10,34 @@
 #include "contiki-lib.h"
 #include "contiki-net.h"
 #include "net/ip/resolv.h"
+#include "sys/etimer.h"
 
 #include <string.h>
-#include <stdbool.h>
+#include <stdio.h>
 
-#define UDP_CLIENT_PORT 8765
-#define UDP_SERVER_PORT 5678
+#define INTERVAL_TIME 1*60*CLOCK_SECOND // 5 minutes
 
-#define DEBUG DEBUG_PRINT
-#include "net/ip/uip-debug.h"
-
-#define MAX_PAYLOAD_LEN   30
-
-#define VERSION 0x00a
-#define DOMAIN_ID 1
-
-static struct uip_udp_conn *client_conn;
-static uip_ipaddr_t server_ipaddr;
-
-struct nf_v10_hdr { 
-  u_int16_t version;    
-  u_int16_t length;
-  u_int32_t export_time;
-  u_int32_t seqence;
-  u_int32_t domain_id;
-};
-
-static struct nf_v10_hdr nf_hdr = {VERSION, 0, 0, 1, DOMAIN_ID};
 
 /*---------------------------------------------------------------------------*/
 PROCESS(netflow_client_process, "Netflow Client process");
 AUTOSTART_PROCESSES(&netflow_client_process);
 /*---------------------------------------------------------------------------*/
-static void
-set_global_address(void)
+void
+send_records()
 {
-  uip_ipaddr_t ipaddr;
-
-  uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
-  uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-  uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
-
-  /* set server address */
-  uip_ip6addr(&server_ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
-
+  printf("Send records\n");
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(netflow_client_process, ev, data)
 {
+  static struct etimer et;
+
   PROCESS_BEGIN();
-
-  PROCESS_PAUSE();
-
-  set_global_address();
-
-  PRINTF("Netflow client process started\n");
-
-  /* new connection with remote host */
-  client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL);
-  udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT));
-
-  /* send message to server */
-  while(1) {
-    uip_udp_packet_sendto(client_conn, &nf_hdr, sizeof(nf_hdr),
-                          &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
-    PRINTF("Message sent to netflow server\n");
-
-    PROCESS_PAUSE();
+  
+  while(1){
+    etimer_set(&et, INTERVAL_TIME);
+    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&et));
+    send_records();
   }
  
   PROCESS_END();
