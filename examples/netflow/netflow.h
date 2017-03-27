@@ -13,6 +13,7 @@
 #define TEMPLATE_ID 256
 #define VERSION 0x00a
 #define DOMAIN_ID 1
+#define LENGTH 20
 
 struct nf_v10_hdr { 
   u_int16_t version;    
@@ -23,11 +24,12 @@ struct nf_v10_hdr {
 };
 
 struct nf_v10_data_record { 
-  u_int64_t source_rime;
-  u_int64_t destination_rime;
+  uint16_t source_rime;
+  uint16_t destination_rime;
+  u_int64_t octet_delta_count;
 };
 
-struct nf_v10_set_hdr { 
+struct nf_v10_data_set { 
   u_int16_t set_id;
   u_int16_t length;
   struct nf_v10_data_record *records;
@@ -35,17 +37,8 @@ struct nf_v10_set_hdr {
 
 struct nf_v10_packet{
   struct nf_v10_hdr hdr;
-  struct nf_v10_data_record data;
+  struct nf_v10_data_set data;
 };
 
-void export();
-void collect();
-void update_records(void);
-void flush();
-
-static struct nf_v10_packet packet = {
-  {VERSION, 20, 0, 1, 0}, // header
-  {256, 0, NULL}          // data set
-};
 
 #endif /* NETFLOW_H_ */
