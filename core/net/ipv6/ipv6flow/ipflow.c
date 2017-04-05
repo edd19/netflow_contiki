@@ -25,6 +25,8 @@
 #define MEMB_NAME flow_memb
 #define MAX_LENGTH 10
 
+#define EXPORT_INTERVAL 5*60*CLOCK_SECOND // 5 minutes
+
 static uint16_t seqno = 1;
 process_event_t netflow_event;
 static short initialized = 0;
@@ -69,11 +71,11 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
   for(current_node = list_head(LIST_NAME); 
       current_node != NULL;
       current_node = list_item_next(current_node)) {
-    ipflow_record_t record = current_node -> record;
-    if (ripaddr -> u8[0] == record.destination){
+    ipflow_record_t *record = &(current_node -> record);
+    if (ripaddr -> u8[0] == record -> destination){
       PRINTF("Update existent flow record\n");
-      record.size = record.size + size;
-      record.packets++;
+      record -> size = size + (record -> size);
+      record -> packets = (record -> packets) + 1;
       return 1;
     }
   }
@@ -142,13 +144,28 @@ flush(){
   }
 }
 /*---------------------------------------------------------------------------*/
+void
+print_table(){
+  PRINTF("Flow table \n");
+  struct flow_node *current_node;
+  for(current_node = list_pop(LIST_NAME); 
+      current_node != NULL;
+      current_node = list_pop(LIST_NAME)) {
+  	ipflow_record_t record = current_node -> record;
+    PRINTF("Dest: %d - Size: %d - Packets: %d \n", record.destination, record.size, record.packets);
+  }
+}
+/*---------------------------------------------------------------------------*/
 PROCESS_THREAD(flow_process, ev, data)
 {
+  static struct etimer periodic;
+
   PROCESS_BEGIN();
 
   ipflow_p = PROCESS_CURRENT();
   netflow_event = process_alloc_event();
 
+  etimer_set(&periodic, EXPORT_INTERVAL);
   while(1){
     PROCESS_YIELD();
     if(ev == netflow_event){
@@ -157,6 +174,11 @@ PROCESS_THREAD(flow_process, ev, data)
     		struct ipflow_event_data *event_data = data;
     		flow_update(event_data -> ripaddr, event_data -> size);
     	}
+    }
+    if(etimer_expired(&periodic)) {
+      etimer_reset(&periodic);
+      print_table();
+      flush();
     }
   }
 
