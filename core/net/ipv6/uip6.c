@@ -78,6 +78,7 @@
 #include "net/ipv6/uip-nd6.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/multicast/uip-mcast6.h"
+#include "net/ipv6/ipv6flow/ipflow.h"
 
 #include <string.h>
 
@@ -1583,6 +1584,9 @@ uip_process(uint8_t flag)
   rpl_insert_header();
 #endif /* UIP_CONF_IPV6_RPL */
 
+  if (is_launched() == 1){
+    process_post(ipflow_p, netflow_event, NULL);
+  } 
   UIP_STAT(++uip_stat.udp.sent);
   goto ip_send_nolen;
 #endif /* UIP_UDP */
@@ -2291,6 +2295,10 @@ uip_process(uint8_t flag)
   /* Calculate TCP checksum. */
   UIP_TCP_BUF->tcpchksum = 0;
   UIP_TCP_BUF->tcpchksum = ~(uip_tcpchksum());
+  // IPFLOW
+  if (is_launched() == 1){
+    process_post(ipflow_p, netflow_event, NULL);
+  } 
   UIP_STAT(++uip_stat.tcp.sent);
 
 #endif /* UIP_TCP */

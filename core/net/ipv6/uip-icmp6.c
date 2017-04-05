@@ -45,6 +45,7 @@
 #include <string.h>
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/uip-icmp6.h"
+#include "net/ipv6/ipv6flow/ipflow.h"
 #include "contiki-default-conf.h"
 
 #define DEBUG 0
@@ -313,6 +314,10 @@ uip_icmp6_send(const uip_ipaddr_t *dest, int type, int code, int payload_len)
   UIP_ICMP_BUF->icmpchksum = ~uip_icmp6chksum();
 
   uip_len = UIP_IPH_LEN + UIP_ICMPH_LEN + payload_len;
+  // IPFLOW
+  if (is_launched() == 1){
+    process_post(ipflow_p, netflow_event, NULL);
+  }
   tcpip_ipv6_output();
 }
 /*---------------------------------------------------------------------------*/
