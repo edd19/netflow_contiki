@@ -58,7 +58,7 @@ int is_launched();
 
 int flow_update(uip_ipaddr_t *ripaddr, int size);
 
-ipflow_t * create_message();
+void send_message();
 
 void free_message(ipflow_t * message);
 

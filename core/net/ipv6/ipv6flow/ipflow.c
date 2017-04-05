@@ -11,6 +11,7 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "sys/node-id.h"
+#include "simple-udp.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 
 #define DEBUG 1
@@ -26,10 +27,13 @@
 #define MAX_LENGTH 10
 
 #define EXPORT_INTERVAL 5*60*CLOCK_SECOND // 5 minutes
+#define UDP_PORT 1230
 
 static uint16_t seqno = 1;
 process_event_t netflow_event;
 static short initialized = 0;
+static struct simple_udp_connection unicast_connection;
+static uip_ipaddr_t server_addr;
 
 struct flow_node {
   struct flow_node *next;
@@ -50,6 +54,7 @@ initialize_ipflow()
   list_init(LIST_NAME);
   memb_init(&MEMB_NAME);
   process_start(&flow_process, NULL);
+  uip_ip6addr(&server_addr, 0xaaaa, 0, 0, 0, 0x0250, 0xc2ff, 0xfea8, 0xcd1a);
   initialized = 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -97,12 +102,12 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
-ipflow_t *
-create_message()
+void
+send_message()
 {
 	if(initialized == 0){
 		PRINTF("Not initialized\n");
-		return 0;
+		return ;
 	}
   PRINTF("Create message\n");
   // Create header 
@@ -125,7 +130,7 @@ create_message()
 
   seqno ++;
 
-  return &message;
+  simple_udp_sendto(&unicast_connection, &message, length * sizeof(uint8_t), &server_addr);
 
 }
 /*---------------------------------------------------------------------------*/
@@ -165,6 +170,9 @@ PROCESS_THREAD(flow_process, ev, data)
   ipflow_p = PROCESS_CURRENT();
   netflow_event = process_alloc_event();
 
+  simple_udp_register(&unicast_connection, 0,
+                      NULL, UDP_PORT, NULL);
+
   etimer_set(&periodic, EXPORT_INTERVAL);
   while(1){
     PROCESS_YIELD();
@@ -178,6 +186,7 @@ PROCESS_THREAD(flow_process, ev, data)
     if(etimer_expired(&periodic)) {
       etimer_reset(&periodic);
       print_table();
+      send_message();
       flush();
     }
   }
