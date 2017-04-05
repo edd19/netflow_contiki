@@ -41,6 +41,11 @@ typedef struct {
   ipflow_record_t *records;
 } ipflow_t;
 
+struct ipflow_event_data {
+  uip_ipaddr_t *ripaddr;
+  int size;
+};
+
 
 /*---------------------------------------------------------------------------*/
 

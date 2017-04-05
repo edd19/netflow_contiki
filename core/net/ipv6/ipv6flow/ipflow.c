@@ -22,6 +22,7 @@
 #endif /* DEBUG */
 
 #define LIST_NAME flow_list
+#define MEMB_NAME flow_memb
 #define MAX_LENGTH 10
 
 static uint16_t seqno = 1;
@@ -35,6 +36,8 @@ struct flow_node {
 
 LIST(LIST_NAME);
 
+MEMB(MEMB_NAME, struct flow_node, MAX_LENGTH);
+
 /*---------------------------------------------------------------------------*/
 PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
@@ -43,6 +46,7 @@ initialize_ipflow()
 {
   PRINTF("Initialize ipflow\n");
   list_init(LIST_NAME);
+  memb_init(&MEMB_NAME);
   process_start(&flow_process, NULL);
   initialized = 1;
 }
@@ -66,7 +70,6 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
       current_node != NULL;
       current_node = list_item_next(current_node)) {
     ipflow_record_t record = current_node -> record;
-	PRINTF("Record destination %d \n", record.destination);
     if (ripaddr -> u8[0] == record.destination){
       PRINTF("Update existent flow record\n");
       record.size = record.size + size;
@@ -83,13 +86,12 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
 
   // Create new flow
   PRINTF("Create new flow record\n");
-  PRINTF("Address: %d \n", ripaddr -> u8[0]);
-  PRINTF("Length of flow tables %d \n", list_length(LIST_NAME));
   ipflow_record_t new_record = {ripaddr -> u8[0], size, 1};
-  // TODO allocate memory and free
-  static struct flow_node new_node;
-  new_node.record = new_record;
-  list_push(LIST_NAME, &new_node);
+  
+  struct flow_node *new_node;
+  new_node = memb_alloc(&MEMB_NAME);
+  new_node -> record = new_record;
+  list_push(LIST_NAME, new_node);
   return 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -132,7 +134,12 @@ flush(){
 		return ;
 	}
   PRINTF("Flush records list\n");
-  while(list_pop(LIST_NAME) != NULL){}
+  struct flow_node *current_node;
+  for(current_node = list_pop(LIST_NAME); 
+      current_node != NULL;
+      current_node = list_pop(LIST_NAME)) {
+    memb_free(&MEMB_NAME, current_node);
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(flow_process, ev, data)
@@ -144,7 +151,13 @@ PROCESS_THREAD(flow_process, ev, data)
 
   while(1){
     PROCESS_YIELD();
-    PRINTF("Event to treat\n");
+    if(ev == netflow_event){
+    	PRINTF("Netflow event to treat\n");
+    	if (data != NULL){
+    		struct ipflow_event_data *event_data = data;
+    		flow_update(event_data -> ripaddr, event_data -> size);
+    	}
+    }
   }
 
   PROCESS_END();

@@ -316,7 +316,8 @@ uip_icmp6_send(const uip_ipaddr_t *dest, int type, int code, int payload_len)
   uip_len = UIP_IPH_LEN + UIP_ICMPH_LEN + payload_len;
   // IPFLOW
   if (is_launched() == 1){
-    process_post(ipflow_p, netflow_event, NULL);
+    struct ipflow_event_data event_data = {&UIP_IP_BUF->destipaddr, uip_len};
+    process_post(ipflow_p, netflow_event, &event_data);
   }
   tcpip_ipv6_output();
 }
