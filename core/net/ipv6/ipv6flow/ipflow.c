@@ -56,7 +56,7 @@ initialize_ipflow()
   list_init(LIST_NAME);
   memb_init(&MEMB_NAME);
   process_start(&flow_process, NULL);
-  uip_ip6addr(&server_addr, 0xaaaa, 0, 0, 0, 0x0250, 0xc2ff, 0xfea8, 0xcd1a);
+  uip_ip6addr(&server_addr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 1);
   initialized = 1;
 }
 /*---------------------------------------------------------------------------*/
@@ -104,7 +104,7 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
-void
+static void
 send_message()
 {
 	if(initialized == 0){
