@@ -104,7 +104,7 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
-static void
+void
 send_message()
 {
 	if(initialized == 0){
@@ -114,7 +114,7 @@ send_message()
   PRINTF("Create message\n");
   // Create header 
   // TODO get real battery value, get rpl parent
-  int length = HDR_BYTES + FLOW_BYTES * list_length(LIST_NAME);
+  int length = HDR_BYTES + (FLOW_BYTES * list_length(LIST_NAME));
   ipflow_hdr_t header = {node_id, seqno, 80, length, 1};
 
   // Create flow records
@@ -132,7 +132,7 @@ send_message()
 
   seqno ++;
 
-  PRINTF("Send message\n");
+  PRINTF("Send message of len: %d \n", length);
   uip_udp_packet_sendto(client_connection, &message, length * sizeof(uint8_t),
                         &server_addr, UIP_HTONS(UDP_PORT));
 
@@ -155,11 +155,11 @@ flush(){
 /*---------------------------------------------------------------------------*/
 void
 print_table(){
-  PRINTF("Flow table \n");
+  PRINTF("Flow table (%d elements) \n", list_length(LIST_NAME));
   struct flow_node *current_node;
-  for(current_node = list_pop(LIST_NAME); 
+  for(current_node = (struct flow_node*)list_head(LIST_NAME); 
       current_node != NULL;
-      current_node = list_pop(LIST_NAME)) {
+      current_node = list_item_next(current_node)) {
   	ipflow_record_t record = current_node -> record;
     PRINTF("Dest: %d - Size: %d - Packets: %d \n", record.destination, record.size, record.packets);
   }
