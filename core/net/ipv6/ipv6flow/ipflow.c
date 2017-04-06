@@ -11,7 +11,9 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "sys/node-id.h"
-#include "simple-udp.h"
+#include "net/ip/uip.h"
+#include "net/ipv6/uip-ds6.h"
+#include "net/ip/uip-udp-packet.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 
 #define DEBUG 1
@@ -32,7 +34,7 @@
 static uint16_t seqno = 1;
 process_event_t netflow_event;
 static short initialized = 0;
-static struct simple_udp_connection unicast_connection;
+static struct uip_udp_conn *client_connection;
 static uip_ipaddr_t server_addr;
 
 struct flow_node {
@@ -130,7 +132,9 @@ send_message()
 
   seqno ++;
 
-  simple_udp_sendto(&unicast_connection, &message, length * sizeof(uint8_t), &server_addr);
+  PRINTF("Send message\n");
+  uip_udp_packet_sendto(client_connection, &message, length * sizeof(uint8_t),
+                        &server_addr, UIP_HTONS(UDP_PORT));
 
 }
 /*---------------------------------------------------------------------------*/
@@ -170,8 +174,12 @@ PROCESS_THREAD(flow_process, ev, data)
   ipflow_p = PROCESS_CURRENT();
   netflow_event = process_alloc_event();
 
-  simple_udp_register(&unicast_connection, 0,
-                      NULL, UDP_PORT, NULL);
+  client_connection = udp_new(NULL, UIP_HTONS(UDP_PORT), NULL); 
+  if(client_connection == NULL) {
+    PRINTF("No UDP connection available, exiting the process!\n");
+    PROCESS_EXIT();
+  }
+  udp_bind(client_connection, UIP_HTONS(UDP_PORT)); 
 
   etimer_set(&periodic, EXPORT_INTERVAL);
   while(1){
