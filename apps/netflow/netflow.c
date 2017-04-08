@@ -33,6 +33,7 @@
 #include "contiki.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
+#include "net/ipv6/ipv6flow/ipflow.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
@@ -56,15 +57,11 @@ initialize_netflow()
 static void
 tcpip_handler(void)
 {
-
-  char *appdata;
-
+  uint8_t *message;
   if(uip_newdata()) {
-    appdata = (char *)uip_appdata;
-    appdata[uip_datalen()] = 0;
-    PRINTF("DATA recv '%s'", appdata);
-    PRINTF("\n");
-    PRINTF("DATA length: %d \n", uip_datalen());
+    PRINTF("Received new ipflow data\n");
+    message = (uint8_t *)uip_appdata;
+    print_message(message);
   }
 }
 /*---------------------------------------------------------------------------*/
