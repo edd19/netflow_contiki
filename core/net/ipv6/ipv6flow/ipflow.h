@@ -60,7 +60,7 @@ int flow_update(uip_ipaddr_t *ripaddr, int size);
 
 void send_message();
 
-void free_message(ipflow_t * message);
+void print_message(uint8_t *message);
 
 void flush();
 /*---------------------------------------------------------------------------*/

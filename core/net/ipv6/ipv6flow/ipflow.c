@@ -73,6 +73,7 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
 		PRINTF("Not initialized\n");
 		return 0;
 	}	
+  
   // Update flow if already existent
   struct flow_node *current_node; 
   for(current_node = list_head(LIST_NAME); 
@@ -115,20 +116,27 @@ send_message()
   // Create header 
   // TODO get real battery value, get rpl parent
   int length = HDR_BYTES + (FLOW_BYTES * list_length(LIST_NAME));
-  ipflow_hdr_t header = {node_id, seqno, 80, length, 1};
+  uint8_t message[length]; 
+  memcpy(message, &node_id, sizeof(uint16_t));
+  memcpy(&message[2], &seqno, sizeof(uint16_t));
+  message[4] = 0;
+  message[5] = length;
+  message[6] = 0;
 
   // Create flow records
-  ipflow_record_t records[list_length(LIST_NAME)];
   struct flow_node *current_node;
-  int n = 0; 
+  int n = 0;
   for(current_node = (struct flow_node*)list_head(LIST_NAME); 
       current_node != NULL;
       current_node = list_item_next(current_node)) {
-    records[n] = current_node->record;
+    int offset = HDR_BYTES + (n*FLOW_BYTES);
+    message[offset] = (current_node -> record).destination;
+    memcpy(&message[offset+1], &(current_node -> record).size, sizeof(uint16_t));
+    memcpy(&message[offset+3], &(current_node -> record).packets, sizeof(uint16_t));
     n++;
   }
-  // TODO malloc memory for message
-  ipflow_t message = {header, records};
+
+  print_message(message);
 
   seqno ++;
 
@@ -139,7 +147,30 @@ send_message()
 }
 /*---------------------------------------------------------------------------*/
 void
-flush(){
+print_message(uint8_t *message)
+{
+  PRINTF("**Header**\n");
+  uint16_t *id = (uint16_t *)&message[0];
+  uint16_t *seq = (uint16_t *)&message[2];
+  PRINTF("Node_id : %d - Seq no: %d - Battery: %d - Length: %d - Parent id: %d \n",
+         *id, *seq, message[4], message[5], message[6]);
+
+  PRINTF("**Records**\n");
+  int length = message[5];
+  int number_records = (length - HDR_BYTES) / FLOW_BYTES;
+  int i = 0;
+  for(i = 0; i < number_records; i++){
+    int offset = HDR_BYTES + (i*FLOW_BYTES);
+    uint16_t *size = (uint16_t *)&message[offset+1];
+    uint16_t *packets = (uint16_t *)&message[offset+3];
+    PRINTF("No.%d  Destination: %d - Size:%d -Packets:%d \n",
+           i+1, message[offset], *size, *packets);
+  }
+}
+/*---------------------------------------------------------------------------*/
+void
+flush()
+{
 	if(initialized == 0){
 		PRINTF("Not initialized\n");
 		return ;
@@ -150,18 +181,6 @@ flush(){
       current_node != NULL;
       current_node = list_pop(LIST_NAME)) {
     memb_free(&MEMB_NAME, current_node);
-  }
-}
-/*---------------------------------------------------------------------------*/
-void
-print_table(){
-  PRINTF("Flow table (%d elements) \n", list_length(LIST_NAME));
-  struct flow_node *current_node;
-  for(current_node = (struct flow_node*)list_head(LIST_NAME); 
-      current_node != NULL;
-      current_node = list_item_next(current_node)) {
-  	ipflow_record_t record = current_node -> record;
-    PRINTF("Dest: %d - Size: %d - Packets: %d \n", record.destination, record.size, record.packets);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -193,7 +212,6 @@ PROCESS_THREAD(flow_process, ev, data)
     }
     if(etimer_expired(&periodic)) {
       etimer_reset(&periodic);
-      print_table();
       send_message();
       flush();
     }
