@@ -41,9 +41,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "netflow.h"
+
 #define UDP_PORT 1230
 
 static struct uip_udp_conn *server_connection;
+static uint32_t seqno = 1;
 
 /*---------------------------------------------------------------------------*/
 PROCESS(ipflow_receiver_process, "Ipflow receiver process");
@@ -52,6 +55,54 @@ void
 initialize_netflow()
 {
   process_start(&ipflow_receiver_process, NULL);
+}
+/*---------------------------------------------------------------------------*/
+void
+send_template()
+{
+  // TODO check if HTONS
+  // Create template
+  // TODO export time
+  uint16_t version = VERSION;
+  uint16_t length = NETFLOW_HDR_BYTES + SET_HDR_BYTES + TEMPLATE_BYTES;
+  uint32_t domain = DOMAIN_ID;
+  uint8_t message[length];
+  memcpy(message, &version, sizeof(uint16_t));
+  memcpy(&message[2], &length, sizeof(uint16_t));
+  message[4] = 0;
+  message[5] = 0;
+  message[6] = 0;
+  message[7] = 0;
+  memcpy(&message[8], &seqno, sizeof(uint32_t));
+  memcpy(&message[12], &domain, sizeof(uint32_t));
+
+
+  //Create template
+  uint16_t length_template = SET_HDR_BYTES + TEMPLATE_BYTES;
+  memcpy(&message[16], (uint16_t *)TEMPLATE_ID, sizeof(uint16_t));
+  memcpy(&message[18], &length_template, sizeof(uint16_t));
+
+  memcpy(&message[20], (uint16_t *)OCTET_DELTA_COUNT, sizeof(uint16_t));
+  memcpy(&message[22], (uint16_t *)OCTET_DELTA_COUNT_BYTES, sizeof(uint16_t));
+  memcpy(&message[24], (uint16_t *)PACKET_DELTA_COUNT, sizeof(uint16_t));
+  memcpy(&message[26], (uint16_t *)PACKET_DELTA_COUNT_BYTES, sizeof(uint16_t));
+
+  print_template(message);
+
+}
+/*---------------------------------------------------------------------------*/
+void 
+print_template(uint8_t *message)
+{
+  PRINTF("IPFIX header:\n");
+  uint16_t *version = (uint16_t *)&message[0];
+  uint16_t *length = (uint16_t*)&message[2];
+  uint32_t *export_time = (uint32_t *)&message[4];
+  uint32_t *seq_no = (uint32_t *)&message[8];
+  uint32_t *domain = (uint32_t *)&message[12];
+
+  PRINTF("Version: %d - Length: %d Export time: %lu - Sequence No: %lu - Domain: %lu \n",
+         *version, *length, *export_time, *seq_no, *domain);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -80,6 +131,7 @@ PROCESS_THREAD(ipflow_receiver_process, ev, data)
   udp_bind(server_connection, UIP_HTONS(UDP_PORT));
 
   PRINTF("Ready to listen for incoming ipflow message\n");
+  send_template();
 
   while(1) {
     PROCESS_YIELD();
