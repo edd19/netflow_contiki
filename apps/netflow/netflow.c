@@ -57,6 +57,35 @@ initialize_netflow()
   process_start(&ipflow_receiver_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
+void 
+print_template(uint8_t *message)
+{
+  PRINTF("IPFIX header:\n");
+  uint16_t *version = (uint16_t *)&message[0];
+  uint16_t *length = (uint16_t*)&message[2];
+  uint32_t *export_time = (uint32_t *)&message[4];
+  uint32_t *seq_no = (uint32_t *)&message[8];
+  uint32_t *domain = (uint32_t *)&message[12];
+
+  PRINTF("Version: %d - Length: %d Export time: %lu - Sequence No: %lu - Domain: %lu \n",
+         *version, *length, *export_time, *seq_no, *domain);
+
+  PRINTF("Template : \n");
+  uint16_t *template_id = (uint16_t *)&message[16];
+  uint16_t *length_template = (uint16_t *)&message[18];
+
+  PRINTF("HDR \t Id: %d - Length: %d\n", *template_id, *length_template);
+
+  uint16_t *octet_delta_count = (uint16_t *)&message[20];
+  uint16_t *octet_delta_count_bytes = (uint16_t *)&message[22];
+  uint16_t *packet_delta_count = (uint16_t *)&message[24];
+  uint16_t *packet_delta_count_bytes = (uint16_t *)&message[26];
+  PRINTF("Fields \t  Octet: %d (%d) - Packet:%d (%d)\n",
+         *octet_delta_count, *octet_delta_count_bytes, *packet_delta_count,
+         *packet_delta_count_bytes);
+
+}
+/*---------------------------------------------------------------------------*/
 void
 send_template()
 {
@@ -78,31 +107,22 @@ send_template()
 
 
   //Create template
+  uint16_t template_id = TEMPLATE_ID;
   uint16_t length_template = SET_HDR_BYTES + TEMPLATE_BYTES;
-  memcpy(&message[16], (uint16_t *)TEMPLATE_ID, sizeof(uint16_t));
+  memcpy(&message[16], &template_id, sizeof(uint16_t));
   memcpy(&message[18], &length_template, sizeof(uint16_t));
 
-  memcpy(&message[20], (uint16_t *)OCTET_DELTA_COUNT, sizeof(uint16_t));
-  memcpy(&message[22], (uint16_t *)OCTET_DELTA_COUNT_BYTES, sizeof(uint16_t));
-  memcpy(&message[24], (uint16_t *)PACKET_DELTA_COUNT, sizeof(uint16_t));
-  memcpy(&message[26], (uint16_t *)PACKET_DELTA_COUNT_BYTES, sizeof(uint16_t));
+  uint16_t octet_delta_count = OCTET_DELTA_COUNT;
+  uint16_t octet_delta_count_bytes = OCTET_DELTA_COUNT_BYTES;
+  uint16_t packet_delta_count = PACKET_DELTA_COUNT;
+  uint16_t packet_delta_count_bytes = PACKET_DELTA_COUNT_BYTES;
+  memcpy(&message[20], &octet_delta_count, sizeof(uint16_t));
+  memcpy(&message[22], &octet_delta_count_bytes, sizeof(uint16_t));
+  memcpy(&message[24], &packet_delta_count, sizeof(uint16_t));
+  memcpy(&message[26], &packet_delta_count_bytes, sizeof(uint16_t));
 
   print_template(message);
 
-}
-/*---------------------------------------------------------------------------*/
-void 
-print_template(uint8_t *message)
-{
-  PRINTF("IPFIX header:\n");
-  uint16_t *version = (uint16_t *)&message[0];
-  uint16_t *length = (uint16_t*)&message[2];
-  uint32_t *export_time = (uint32_t *)&message[4];
-  uint32_t *seq_no = (uint32_t *)&message[8];
-  uint32_t *domain = (uint32_t *)&message[12];
-
-  PRINTF("Version: %d - Length: %d Export time: %lu - Sequence No: %lu - Domain: %lu \n",
-         *version, *length, *export_time, *seq_no, *domain);
 }
 /*---------------------------------------------------------------------------*/
 static void
