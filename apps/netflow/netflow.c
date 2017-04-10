@@ -46,6 +46,10 @@
 #define UDP_PORT 1230
 
 static struct uip_udp_conn *server_connection;
+
+static struct uip_udp_conn *client_connection;
+static uip_ipaddr_t server_addr;
+
 static uint32_t seqno = 1;
 
 /*---------------------------------------------------------------------------*/
@@ -89,6 +93,7 @@ print_template(uint8_t *message)
 void
 send_template()
 {
+  PRINTF("Sending template\n");
   // TODO check if HTONS
   // Create template
   // TODO export time
@@ -122,7 +127,56 @@ send_template()
   memcpy(&message[26], &packet_delta_count_bytes, sizeof(uint16_t));
 
   print_template(message);
+  PRINTF("Send message of len: %d \n", length);
+  uip_udp_packet_sendto(client_connection, &message, length * sizeof(uint8_t),
+                        &server_addr, UIP_HTONS(UDP_PORT));
 
+}
+/*---------------------------------------------------------------------------*/
+void
+send_record(uint8_t *ipflow_message)
+{
+  uint16_t *id = (uint16_t *)&ipflow_message[0];
+  uint16_t *seq = (uint16_t *)&ipflow_message[2];
+  uint8_t *battery = &ipflow_message[3];
+  uint8_t *length = &ipflow_message[4];
+  uint8_t *parent = &ipflow_message[5];
+
+  int number_records = (*length - HDR_BYTES) / FLOW_BYTES;
+
+  uint16_t version = VERSION;
+  uint16_t length_message = NETFLOW_HDR_BYTES + SET_HDR_BYTES + (RECORD_BYTES * number_records);
+  uint32_t domain = DOMAIN_ID;
+  uint8_t message[length];
+  memcpy(message, &version, sizeof(uint16_t));
+  memcpy(&message[2], &length_message, sizeof(uint16_t));
+  message[4] = 0;
+  message[5] = 0;
+  message[6] = 0;
+  message[7] = 0;
+  memcpy(&message[8], &seqno, sizeof(uint32_t));
+  memcpy(&message[12], &domain, sizeof(uint32_t));
+
+  uint16_t template_id = TEMPLATE_ID;
+  uint16_t length_data = SET_HDR_BYTES + (RECORD_BYTES * number_records);
+  memcpy(&message[16], &template_id, sizeof(uint16_t));
+  memcpy(&message[18], &length_data, sizeof(uint16_t));
+
+  int offset = 20;
+  int i = 0;
+  for(i = 0; i < number_records; i++){
+    int ipflow_offset = HDR_BYTES + (i*FLOW_BYTES);
+    uint16_t *size = (uint16_t *)&message[offset+1];
+    uint16_t *packets = (uint16_t *)&message[offset+3];
+
+    memcpy(&message[offset], size, sizeof(uint16_t));
+    memcpy(&message[offset+2], packets, sizeof(uint16_t));
+    offset = offset + 4;
+  }
+
+  PRINTF("Send message of len: %d \n", length_message);
+  uip_udp_packet_sendto(client_connection, &message, length_message * sizeof(uint8_t),
+                        &server_addr, UIP_HTONS(UDP_PORT));
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -150,7 +204,15 @@ PROCESS_THREAD(ipflow_receiver_process, ev, data)
   }
   udp_bind(server_connection, UIP_HTONS(UDP_PORT));
 
+  client_connection = udp_new(NULL, UIP_HTONS(UDP_PORT), NULL); 
+  if(client_connection == NULL) {
+    PRINTF("No UDP connection available, exiting the process!\n");
+    PROCESS_EXIT();
+  }
+  udp_bind(client_connection, UIP_HTONS(UDP_PORT)); 
+
   PRINTF("Ready to listen for incoming ipflow message\n");
+
   send_template();
 
   while(1) {
