@@ -31,6 +31,7 @@
  */
 
 #include "contiki.h"
+#include "sys/clock.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
@@ -96,17 +97,14 @@ send_template()
   PRINTF("Sending template\n");
   // TODO check if HTONS
   // Create template
-  // TODO export time
   uint16_t version = VERSION;
   uint16_t length = NETFLOW_HDR_BYTES + SET_HDR_BYTES + TEMPLATE_BYTES;
+  uint32_t export_time = (uint32_t)clock_seconds();
   uint32_t domain = DOMAIN_ID;
   uint8_t message[length];
   memcpy(message, &version, sizeof(uint16_t));
   memcpy(&message[2], &length, sizeof(uint16_t));
-  message[4] = 0;
-  message[5] = 0;
-  message[6] = 0;
-  message[7] = 0;
+  memcpy(&message[4], &export_time, sizeof(uint32_t));
   memcpy(&message[8], &seqno, sizeof(uint32_t));
   memcpy(&message[12], &domain, sizeof(uint32_t));
 
@@ -130,6 +128,8 @@ send_template()
   PRINTF("Send message of len: %d \n", length);
   uip_udp_packet_sendto(client_connection, &message, length * sizeof(uint8_t),
                         &server_addr, UIP_HTONS(UDP_PORT));
+
+  seqno++;
 
 }
 /*---------------------------------------------------------------------------*/
