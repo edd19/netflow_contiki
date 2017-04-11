@@ -10,11 +10,13 @@
 
 #include "contiki.h"
 #include "contiki-lib.h"
-#include "sys/node-id.h"
 #include "net/ip/uip.h"
 #include "net/ipv6/uip-ds6.h"
-#include "net/ip/uip-udp-packet.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
+#include "net/ip/uip-udp-packet.h"
+#include "net/rpl/rpl.h"
+#include "dev/battery-sensor.h"
+#include "sys/clock.h"
 
 #include <stdlib.h>
 
@@ -123,23 +125,44 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
   return 1;
 }
 /*---------------------------------------------------------------------------*/
+uip_ipaddr_t *
+get_parent()
+{
+  rpl_dag_t *d; 
+  d = rpl_get_any_dag();
+  if(!d){
+    return NULL;
+  }
+  return rpl_get_parent_ipaddr(d->preferred_parent);
+}
+/*---------------------------------------------------------------------------*/
 void
 send_message()
 {
+  SENSORS_ACTIVATE(battery_sensor);
 	if(initialized == 0){
 		PRINTF("Not initialized\n");
 		return ;
 	}
   PRINTF("Create message\n");
   // Create header 
-  // TODO get real battery value, get rpl parent
+  
   int length = HDR_BYTES + (FLOW_BYTES * list_length(LIST_NAME));
+  uint16_t battery = battery_sensor.value(0);
+  uip_ipaddr_t *parent = get_parent();
   uint8_t message[length]; 
-  memcpy(message, &node_id, sizeof(uint16_t));
-  memcpy(&message[2], &seqno, sizeof(uint16_t));
-  message[4] = 0;
-  message[5] = length;
-  message[6] = 0;
+  memcpy(message, &seqno, sizeof(uint16_t));
+  memcpy(&message[2], &battery, sizeof(uint16_t));
+  message[4] = length;
+  int i = 0;
+  for(i = 0; i < 16; i++){
+    if(!parent){
+      message[5+i] = 0;
+    }
+    else{
+      message[4+i] = parent -> u8[i];
+    }
+  }
 
   // Create flow records
   struct flow_node *current_node;
@@ -165,19 +188,26 @@ send_message()
   uip_udp_packet_sendto(client_connection, &message, length * sizeof(uint8_t),
                         &server_addr, UIP_HTONS(UDP_PORT));
 
+  SENSORS_DEACTIVATE(battery_sensor);
+
 }
 /*---------------------------------------------------------------------------*/
 void
 print_message(uint8_t *message)
 {
   PRINTF("**Header**\n");
-  uint16_t *id = (uint16_t *)&message[0];
-  uint16_t *seq = (uint16_t *)&message[2];
-  PRINTF("Node_id : %d - Seq no: %d - Battery: %d - Length: %d - Parent id: %d \n",
-         *id, *seq, message[4], message[5], message[6]);
+  uint16_t *seq = (uint16_t *)&message[0];
+  uint16_t *bat = (uint16_t *)&message[2];
+  PRINTF("Seq no: %d - Battery: %d - Length: %d - Parent id: ",
+         *seq, *bat, message[4]);
+  int n = 0;
+  for(n = 0; n < 16; n++){
+    PRINTF("%d ", message[5+n]);
+  }
+  PRINTF("\n");
 
   PRINTF("**Records**\n");
-  int length = message[5];
+  int length = message[4];
   int number_records = (length - HDR_BYTES) / FLOW_BYTES;
   int i = 0;
   for(i = 0; i < number_records; i++){

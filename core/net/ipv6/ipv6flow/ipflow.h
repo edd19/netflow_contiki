@@ -12,7 +12,7 @@
 /*---------------------------------------------------------------------------*/
 #include "net/ip/uip.h"
 /*---------------------------------------------------------------------------*/
-#define HDR_BYTES 7
+#define HDR_BYTES 21
 #define FLOW_BYTES 20
 /*---------------------------------------------------------------------------*/
 CCIF extern process_event_t netflow_event;
@@ -23,9 +23,8 @@ static struct process *ipflow_p;
 /** Structure definition **/
 
 typedef struct {
-  uint16_t node_id;
   uint16_t no_seq;
-  uint8_t battery;
+  uint16_t battery;
   uint8_t length;
   uint8_t parent_id;
 } ipflow_hdr_t;

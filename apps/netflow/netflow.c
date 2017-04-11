@@ -147,7 +147,7 @@ send_record(uint8_t *ipflow_message)
   uint16_t version = VERSION;
   uint16_t length_message = NETFLOW_HDR_BYTES + SET_HDR_BYTES + (RECORD_BYTES * number_records);
   uint32_t domain = DOMAIN_ID;
-  uint8_t message[length];
+  uint8_t message[(int)length];
   memcpy(message, &version, sizeof(uint16_t));
   memcpy(&message[2], &length_message, sizeof(uint16_t));
   message[4] = 0;
