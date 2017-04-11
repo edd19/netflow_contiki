@@ -16,6 +16,8 @@
 #include "net/ip/uip-udp-packet.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 
+#include <stdlib.h>
+
 #define DEBUG 1
 #if DEBUG
 #include <stdio.h>
@@ -66,21 +68,34 @@ is_launched()
 	return initialized;
 }
 /*---------------------------------------------------------------------------*/
+int
+cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out)
+{
+  int i = 0;
+  for(i = 0; i < 16; i++){
+    if ((in -> u8[i]) != (out -> u8[i])){
+      return 0;
+    }
+  }
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
 int 
 flow_update(uip_ipaddr_t *ripaddr, int size)
 {
+  // TODO size is incorrect
 	if(initialized == 0){
 		PRINTF("Not initialized\n");
 		return 0;
 	}	
-  
+
   // Update flow if already existent
   struct flow_node *current_node; 
   for(current_node = list_head(LIST_NAME); 
       current_node != NULL;
       current_node = list_item_next(current_node)) {
     ipflow_record_t *record = &(current_node -> record);
-    if (ripaddr -> u8[0] == record -> destination){
+    if (cmp_ipaddr(ripaddr, &(record -> destination)) == 1){
       PRINTF("Update existent flow record\n");
       record -> size = size + (record -> size);
       record -> packets = (record -> packets) + 1;
@@ -96,7 +111,10 @@ flow_update(uip_ipaddr_t *ripaddr, int size)
 
   // Create new flow
   PRINTF("Create new flow record\n");
-  ipflow_record_t new_record = {ripaddr -> u8[0], size, 1};
+  ipflow_record_t new_record;
+  memcpy(&(new_record.destination), ripaddr, 16 * sizeof(uint8_t));
+  new_record.size = size;
+  new_record.packets = 1;
   
   struct flow_node *new_node;
   new_node = memb_alloc(&MEMB_NAME);
@@ -130,9 +148,12 @@ send_message()
       current_node != NULL;
       current_node = list_item_next(current_node)) {
     int offset = HDR_BYTES + (n*FLOW_BYTES);
-    message[offset] = (current_node -> record).destination;
-    memcpy(&message[offset+1], &(current_node -> record).size, sizeof(uint16_t));
-    memcpy(&message[offset+3], &(current_node -> record).packets, sizeof(uint16_t));
+    int j = 0;
+    for(j = 0; j < 16; j++){
+      message[offset+j] = (current_node -> record).destination.u8[j]; 
+    }
+    memcpy(&message[offset+16], &(current_node -> record).size, sizeof(uint16_t));
+    memcpy(&message[offset+18], &(current_node -> record).packets, sizeof(uint16_t));
     n++;
   }
 
@@ -161,10 +182,15 @@ print_message(uint8_t *message)
   int i = 0;
   for(i = 0; i < number_records; i++){
     int offset = HDR_BYTES + (i*FLOW_BYTES);
-    uint16_t *size = (uint16_t *)&message[offset+1];
-    uint16_t *packets = (uint16_t *)&message[offset+3];
-    PRINTF("No.%d  Destination: %d - Size:%d -Packets:%d \n",
-           i+1, message[offset], *size, *packets);
+    uint16_t *size = (uint16_t *)&message[offset+16];
+    uint16_t *packets = (uint16_t *)&message[offset+18];
+    PRINTF("No.%d - Size:%d -Packets:%d  - Destination: ",
+           i+1, *size, *packets);
+    int j = 0;
+    for(j = 0; j < 16; j++){
+      PRINTF("%x ", message[offset+j]);
+    }
+    PRINTF("\n");
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -207,7 +233,8 @@ PROCESS_THREAD(flow_process, ev, data)
     	PRINTF("Netflow event to treat\n");
     	if (data != NULL){
     		struct ipflow_event_data *event_data = data;
-    		flow_update(event_data -> ripaddr, event_data -> size);
+    		flow_update(&(event_data -> ripaddr), event_data -> size);
+        free(event_data);
     	}
     }
     if(etimer_expired(&periodic)) {

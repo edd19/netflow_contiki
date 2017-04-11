@@ -13,7 +13,7 @@
 #include "net/ip/uip.h"
 /*---------------------------------------------------------------------------*/
 #define HDR_BYTES 7
-#define FLOW_BYTES 5
+#define FLOW_BYTES 20
 /*---------------------------------------------------------------------------*/
 CCIF extern process_event_t netflow_event;
 
@@ -31,7 +31,7 @@ typedef struct {
 } ipflow_hdr_t;
 
 typedef struct {
-  uint8_t destination;
+  uip_ipaddr_t destination;
   uint16_t size;
   uint16_t packets;
 } ipflow_record_t;
@@ -42,8 +42,8 @@ typedef struct {
 } ipflow_t;
 
 struct ipflow_event_data {
-  uip_ipaddr_t *ripaddr;
-  int size;
+  uip_ipaddr_t ripaddr;
+  uint16_t size;
 };
 
 

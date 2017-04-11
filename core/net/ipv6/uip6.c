@@ -81,6 +81,7 @@
 #include "net/ipv6/ipv6flow/ipflow.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 /*---------------------------------------------------------------------------*/
 /* For Debug, logging, statistics                                            */
@@ -1585,9 +1586,10 @@ uip_process(uint8_t flag)
 #endif /* UIP_CONF_IPV6_RPL */
 
   if (is_launched() == 1){
-    // TODO check if correct length
-    struct ipflow_event_data event_data = {&UIP_IP_BUF->destipaddr, uip_len};
-    process_post(ipflow_p, netflow_event, &event_data);
+    struct ipflow_event_data *event_data = (struct ipflow_event_data *) malloc(18 * sizeof(uint8_t));
+    memcpy(&(event_data -> ripaddr), &UIP_IP_BUF->destipaddr, sizeof(uint8_t) * 16);
+    event_data -> size = uip_len;
+    process_post(ipflow_p, netflow_event, event_data);
   } 
   UIP_STAT(++uip_stat.udp.sent);
   goto ip_send_nolen;
@@ -2299,8 +2301,10 @@ uip_process(uint8_t flag)
   UIP_TCP_BUF->tcpchksum = ~(uip_tcpchksum());
   // IPFLOW
   if (is_launched() == 1){
-    struct ipflow_event_data event_data = {&UIP_IP_BUF->destipaddr, uip_len};
-    process_post(ipflow_p, netflow_event, &event_data);
+    struct ipflow_event_data *event_data = (struct ipflow_event_data *) malloc(18 * sizeof(uint8_t));
+    memcpy(&(event_data -> ripaddr), &UIP_IP_BUF->destipaddr, sizeof(uint8_t) * 16);
+    event_data -> size = uip_len;
+    process_post(ipflow_p, netflow_event, event_data);
   } 
   UIP_STAT(++uip_stat.tcp.sent);
 
