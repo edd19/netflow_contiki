@@ -103,9 +103,9 @@ add_ipfix_header(uint8_t *ipfix_message)
 }
 /*---------------------------------------------------------------------------*/
 int
-add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset,
-int records)
+add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset)
 {
+  PRINTF("Add ipfix template %d\n", template -> id);
   int length_template = IPFIX_SET_HEADER_LENGTH;
 
   //Set information elements
@@ -127,4 +127,31 @@ int records)
   memcpy(&ipfix_message[offset], (uint16_t *)(template -> id), sizeof(uint16_t));
   memcpy(&ipfix_message[offset+2], (uint16_t *)length_template, sizeof(uint16_t));
 
+  return offset + length_template;
+}
+/*---------------------------------------------------------------------------*/
+int
+add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset, int number_records)
+{
+  PRINTF("Add ipfix records for template %d\n", template -> id);
+  int length_template = IPFIX_SET_HEADER_LENGTH;
+
+  //Set data records
+  int i = 0;
+  for(i = 0; i < number_records; i++){
+    information_element_t *current_element;
+    for(current_element = list_head(template -> elements);
+    current_element != NULL;
+    current_element = list_item_next(template -> elements)) {
+      uint8_t *value = (current_element -> f)(); // TODO free value
+      memcpy(&ipfix_message[offset + length_data], value, sizeof(uint8_t) * (current_element -> size));
+      length_data = length_data + (current_element -> size);
+    }
+  }
+
+  // Set header
+  memcpy(&ipfix_message[offset], (uint16_t *)(template -> id), sizeof(uint16_t));
+  memcpy(&ipfix_message[offset+2], (uint16_t *)length_template, sizeof(uint16_t));
+
+  return offset + length_data;
 }

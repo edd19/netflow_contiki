@@ -32,7 +32,7 @@ typedef struct {
   uint16_t id;
   uint16_t size;
   uint32_t entreprise_id;
-  uint8_t* (*f);
+  uint8_t* (*f);         // function that compute element value
 } information_element_t;
 
 typedef struct {
@@ -56,8 +56,9 @@ void free_template(template_t *template);
 // Methods to create ipfix or tipifx message
 int add_ipfix_header(uint8_t *ipfix_message);
 int add_tipfix_header(uint8_t *ipfix_message);
-int add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset,
-int records);
+int add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset);
+int add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset, int number_records);
+
 
 //Methods to convert tiny ipfix to ipfix
 int tipifx_to_ipfix(uint8_t *tipfix_message, uint8_t *ipfix_message);
