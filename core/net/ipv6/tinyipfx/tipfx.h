@@ -20,6 +20,7 @@
 #define IPFIX_TEMPLATE_ID 256
 
 #define IPFIX_HEADER_LENGTH 20
+#define IPFIX_SET_HEADER_LENGTH 4
 
 #define MAX_TEMPLATES 3
 #define MAX_INFORMATION_ELEMENTS 10
@@ -31,7 +32,7 @@ typedef struct {
   uint16_t id;
   uint16_t size;
   uint32_t entreprise_id;
-  void *f;
+  uint8_t* (*f);
 } information_element_t;
 
 typedef struct {
@@ -55,7 +56,8 @@ void free_template(template_t *template);
 // Methods to create ipfix or tipifx message
 int add_ipfix_header(uint8_t *ipfix_message);
 int add_tipfix_header(uint8_t *ipfix_message);
-int add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset);
+int add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset,
+int records);
 
 //Methods to convert tiny ipfix to ipfix
 int tipifx_to_ipfix(uint8_t *tipfix_message, uint8_t *ipfix_message);

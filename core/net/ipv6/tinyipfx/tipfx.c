@@ -98,6 +98,33 @@ add_ipfix_header(uint8_t *ipfix_message)
   memcpy(ipfix_message, (uint32_t *)domain_id, sizeof(uint32_t));
 
   sequence_number++;
-  
+
   return IPFIX_HEADER_LENGTH;
+}
+/*---------------------------------------------------------------------------*/
+int
+add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset,
+int records)
+{
+  int length_template = IPFIX_SET_HEADER_LENGTH;
+
+  //Set information elements
+  information_element_t *current_element;
+  for(current_element = list_head(template -> elements);
+      current_element != NULL;
+      current_element = list_item_next(template -> elements)) {
+    memcpy(&ipfix_message[offset+length_template], (uint16_t *)(current_element -> id), sizeo(uint16_t));
+    memcpy(&ipfix_message[offset+length_template+2], (uint16_t *)(current_element -> size), sizeo(uint16_t));
+    length_template = length_template + 4;
+
+    if(entreprise_id != 0){
+      memcpy(&ipfix_message[offset+length_template+4], (uint32_t *)(current_element -> entreprise_id), sizeo(uint32_t));
+      length_template = length_template + 4;
+    }
+  }
+
+  // Set header
+  memcpy(&ipfix_message[offset], (uint16_t *)(template -> id), sizeof(uint16_t));
+  memcpy(&ipfix_message[offset+2], (uint16_t *)length_template, sizeof(uint16_t));
+
 }
