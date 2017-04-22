@@ -61,25 +61,8 @@ create_ipfix_template(int id)
   new_template = memb_alloc(&MEMB_TEMPLATES_NAME);
   new_template -> id = id;
   new_template -> n = 0;
-  new_template -> size_template = IPFIX_SET_HEADER_LENGTH;
-  new_template -> size_data = IPFIX_SET_HEADER_LENGTH;
   new_template -> next = NULL;
   list_init(new_template -> elements);
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-compute_template_size_of_info_element(information_element_t *element)
-{
-  if (element -> eid != 0){
-    return 8;
-  }
-  return 4;
-}
-/*---------------------------------------------------------------------------*/
-uint8_t
-compute_data_size_of_info_element(information_element_t *element)
-{
-  return (uint8_t) (element -> size);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -88,8 +71,6 @@ add_element_to_template(template_t *template, information_element_t *element)
   PRINTF("Add new information element to template no %d\n", template -> id);
   list_add(template -> elements, element);
   template -> n = list_length(template -> elements);
-  template -> size_template = (template -> size_template) + compute_template_size_of_info_element(element);
-  template -> size_data = (template -> size_data) + compute_data_size_of_info_element(element);
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -111,16 +92,10 @@ add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 {
   PRINTF("Add ipfix header\n");
   uint32_t ipfix_export_time = clock_seconds();
-  memcpy(ipfix_message, (uint16_t *)(ipfix -> version), sizeof(uint16_t));
-  if(type == IPFIX_TEMPLATE){
-    memcpy(ipfix_message, (uint16_t *)(ipfix -> length_template), sizeof(uint16_t));
-  }
-  else {
-    memcpy(ipfix_message, (uint16_t *)(ipfix -> length_data), sizeof(uint16_t));
-  }
-  memcpy(ipfix_message, (uint32_t *)ipfix_export_time, sizeof(uint32_t));
-  memcpy(ipfix_message, (uint32_t *)sequence_number, sizeof(uint32_t));
-  memcpy(ipfix_message, (uint32_t *)(ipfix -> domain_id), sizeof(uint32_t));
+  memcpy(ipfix_message, &(ipfix -> version), sizeof(uint16_t));
+  memcpy(&ipfix_message[4], &ipfix_export_time, sizeof(uint32_t));
+  memcpy(&ipfix_message[8], &sequence_number, sizeof(uint32_t));
+  memcpy(&ipfix_message[12], &(ipfix -> domain_id), sizeof(uint32_t));
 
   sequence_number++;
 
@@ -138,31 +113,32 @@ add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset)
   for(current_element = list_head(template -> elements);
       current_element != NULL;
       current_element = list_item_next(template -> elements)) {
-    memcpy(&ipfix_message[offset+length_template], (uint16_t *)(current_element -> id), sizeo(uint16_t));
-    memcpy(&ipfix_message[offset+length_template+2], (uint16_t *)(current_element -> size), sizeo(uint16_t));
+    memcpy(&ipfix_message[offset+length_template], &(current_element -> id), sizeo(uint16_t));
+    memcpy(&ipfix_message[offset+length_template+2], &(current_element -> size), sizeo(uint16_t));
     length_template = length_template + 4;
 
     if(entreprise_id != 0){
-      memcpy(&ipfix_message[offset+length_template+4], (uint32_t *)(current_element -> entreprise_id), sizeo(uint32_t));
+      memcpy(&ipfix_message[offset+length_template+4], &(current_element -> entreprise_id), sizeo(uint32_t));
       length_template = length_template + 4;
     }
   }
 
   // Set header
-  memcpy(&ipfix_message[offset], (uint16_t *)(template -> id), sizeof(uint16_t));
-  memcpy(&ipfix_message[offset+2], (uint16_t *)length_template, sizeof(uint16_t));
+  memcpy(&ipfix_message[offset], &(template -> id), sizeof(uint16_t));
+  memcpy(&ipfix_message[offset+2], &length_template, sizeof(uint16_t));
 
   return offset + length_template;
 }
 /*---------------------------------------------------------------------------*/
 int
-add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset, int number_records)
+add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset)
 {
   PRINTF("Add ipfix records for template %d\n", template -> id);
   int length_template = IPFIX_SET_HEADER_LENGTH;
 
   //Set data records
   int i = 0;
+  int number_records = (template -> compute_number_records)()
   for(i = 0; i < number_records; i++){
     information_element_t *current_element;
     for(current_element = list_head(template -> elements);
@@ -175,8 +151,8 @@ add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset, int 
   }
 
   // Set header
-  memcpy(&ipfix_message[offset], (uint16_t *)(template -> id), sizeof(uint16_t));
-  memcpy(&ipfix_message[offset+2], (uint16_t *)length_template, sizeof(uint16_t));
+  memcpy(&ipfix_message[offset], &(template -> id), sizeof(uint16_t));
+  memcpy(&ipfix_message[offset+2], &length_template, sizeof(uint16_t));
 
   return offset + length_data;
 }
@@ -215,15 +191,16 @@ free_ipfix(ipfix_t *ipfix)
   }
 }
 /*---------------------------------------------------------------------------*/
-uint8_t *
-generate_ipfix_message(ipfix_t *ipfix, int type)
+void
+set_ipfix_length(uint8_t *ipfix_message, uint16_t length)
+{
+    memcpy(&ipfix_message[2], &length, sizeof(uint16_t));
+}
+/*---------------------------------------------------------------------------*/
+int
+generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 {
   PRINTF("Generate ipfix message\n");
-  int size = ipfix -> length_template;
-  if(type != IPFIX_TEMPLATE){
-    size = ipfix -> length_data;
-  }
-  uint8_t ipfix_message[size];
   int offset = 0;
   offset = add_ipfix_header(ipfix_message, ipfix);
 
@@ -236,7 +213,6 @@ generate_ipfix_message(ipfix_t *ipfix, int type)
     }
   }
   else{
-    // TODO should have number of records
     template_t *current_template;
     for(current_template = list_pop(ipfix -> templates);
         current_template != NULL;
@@ -245,6 +221,8 @@ generate_ipfix_message(ipfix_t *ipfix, int type)
     }
   }
 
-  return ipfix_message;
+  set_ipfix_length(ipfix_message, (uint16_t)offset);
+
+  return offset;
 }
 /*---------------------------------------------------------------------------*/
