@@ -22,8 +22,12 @@
 #define IPFIX_HEADER_LENGTH 20
 #define IPFIX_SET_HEADER_LENGTH 4
 
+#define MAX_IPFIX 3
 #define MAX_TEMPLATES 3
 #define MAX_INFORMATION_ELEMENTS 10
+
+#define IPFIX_TEMPLATE 1
+#define IPFIX_DATA 2
 
 /** Structures definitions **/
 
@@ -36,10 +40,22 @@ typedef struct {
 } information_element_t;
 
 typedef struct {
+  template_t *next;
   uint16_t id;
   uint8_t n;
+  uint8_t size_template;
+  uint8_t size_data;
   list_t elements;
 } template_t;
+
+typedef struct {
+  uint16_t version;
+  uint16_t length_template;
+  uint16_t length_data;
+  uint32_t domain_id;
+  uint8_t n;
+  list_t templates;
+} ipfix_t;
 
 /*---------------------------------------------------------------------------*/
 
@@ -53,9 +69,14 @@ template_t *create_ipfix_template(int id);
 void add_element_to_template(template_t *template, information_element_t *element);
 void free_template(template_t *template);
 
+ipfix_t *create_ipfix();
+void add_templates_to_ipfix(ipfix_t *ipfix, template_t *template);
+void free_ipfix(ipfix_t *ipfix);
+uint8_t *generate_ipfix_message(ipfix_t *ipfix);
+
 // Methods to create ipfix or tipifx message
-int add_ipfix_header(uint8_t *ipfix_message);
-int add_tipfix_header(uint8_t *ipfix_message);
+int add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix);
+int add_tipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix);
 int add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset);
 int add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset, int number_records);
 
