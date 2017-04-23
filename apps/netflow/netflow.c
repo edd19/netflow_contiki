@@ -136,11 +136,10 @@ send_template()
 void
 send_record(uint8_t *ipflow_message)
 {
-  uint16_t *id = (uint16_t *)&ipflow_message[0];
-  uint16_t *seq = (uint16_t *)&ipflow_message[2];
-  uint8_t *battery = &ipflow_message[3];
-  uint8_t *length = &ipflow_message[4];
-  uint8_t *parent = &ipflow_message[5];
+  uint16_t *seq = (uint16_t *)&ipflow_message[0];
+  uint8_t *battery = &ipflow_message[2];
+  uint8_t *length = &ipflow_message[3];
+  uint8_t *parent = &ipflow_message[4];
 
   int number_records = (*length - HDR_BYTES) / FLOW_BYTES;
 
@@ -150,10 +149,7 @@ send_record(uint8_t *ipflow_message)
   uint8_t message[(int)length];
   memcpy(message, &version, sizeof(uint16_t));
   memcpy(&message[2], &length_message, sizeof(uint16_t));
-  message[4] = 0;
-  message[5] = 0;
-  message[6] = 0;
-  message[7] = 0;
+  memcpy(&message[4], &export_time, sizeof(uint32_t));
   memcpy(&message[8], &seqno, sizeof(uint32_t));
   memcpy(&message[12], &domain, sizeof(uint32_t));
 
@@ -194,6 +190,8 @@ PROCESS_THREAD(ipflow_receiver_process, ev, data)
 {
 
   PROCESS_BEGIN();
+
+  uip_ip6addr(&server_ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
 
   PRINTF("Begin ipflow receiver process\n");
 
