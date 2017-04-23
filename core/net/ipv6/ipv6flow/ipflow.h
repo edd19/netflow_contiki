@@ -14,11 +14,8 @@
 /*---------------------------------------------------------------------------*/
 #define MAX_FLOWS 10
 
-#define RUNNING 1
-#define IDLE 0
-/*---------------------------------------------------------------------------*/
-CCIF extern process_event_t netflow_event;
-static struct process *ipflow_p;
+#define IPFLOW_EXPORT_INTERVAL 1 // minute
+
 /*---------------------------------------------------------------------------*/
 
 /** Structures definition **/

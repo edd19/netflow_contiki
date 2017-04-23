@@ -12,6 +12,7 @@
 #include "contiki-lib.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 #include "net/ipv6/tinyipfix/tipfix.h"
+#include "sys/clock.h"
 
 #include <stdlib.h>
 
@@ -27,13 +28,17 @@
 #define MEMB_FLOWS_NAME flow_memb
 
 
-static int status = IDLE;
+static int status = 0;
+/*---------------------------------------------------------------------------*/
+static void initialize();
+static int cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out);
+static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);
 /*---------------------------------------------------------------------------*/
 void
 launch_ipflow()
 {
   PRINTF("Launch ipflow process\n");
-  status = RUNNING;
+  status = 1;
   process_start(&flow_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -78,6 +83,11 @@ create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
 int
 update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
 {
+  if(get_process_status() != 1){
+    PRINTF("Process not started\n");
+    return 0;
+  }
+
   // Try to update existent flow
   flow_t *current_flow;
   for(current_flow = list_head(LIST_FLOWS_NAME);
@@ -92,7 +102,7 @@ update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
   }
 
   // Check if reached maximum size table
-  if (list_length(LIST_FLOWS_NAME) >= MAX_FLOWS){
+  if (get_number_flows() >= MAX_FLOWS){
     PRINTF("Cannot add new flow record. Flow table is full.\n");
     return 0;
   }
@@ -105,6 +115,9 @@ update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
 int
 get_number_flows()
 {
+  if(get_process_status() != 1){
+    return 0;
+  }
   return list_length(LIST_FLOWS_NAME);
 }
 /*---------------------------------------------------------------------------*/
@@ -117,32 +130,36 @@ get_process_status()
 void
 flush_flow_table()
 {
+  if(get_process_status() != 1){
+    PRINTF("Process not started\n");
+    return 0;
+  }
+
   PRINTF("Flush records list\n");
   flow_t *current_flow;
   for(current_flow = list_pop(LIST_FLOWS_NAME);
      current_flow != NULL;
      current_flow = list_pop(LIST_FLOWS_NAME)) {
     memb_free(&MEMB_FLOWS_NAME, current_flow);
- }
+  }
 }
 /*---------------------------------------------------------------------------*/
 PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(flow_process, ev, data)
 {
+  static struct etimer periodic;
 
   PROCESS_BEGIN();
 
   initialize();
 
+  etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
     PROCESS_YIELD();
-    if(ev == netflow_event){
-    	PRINTF("Netflow event to treat\n");
-    	if (data != NULL){
-    		struct ipflow_event_data *event_data = data;
-        free(event_data);
-    	}
+    if(etimer_expired(&periodic)) {
+      etimer_reset(&periodic);
+      flush_flow_table();
     }
   }
 
