@@ -69,7 +69,7 @@ void free_template(template_t *template);
 ipfix_t *create_ipfix();
 void add_templates_to_ipfix(ipfix_t *ipfix, template_t *template);
 void free_ipfix(ipfix_t *ipfix);
-uint8_t *generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type);
+int generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type);
 
 // Methods to create ipfix or tipifx message
 int add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix);

@@ -10,6 +10,7 @@
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
 #include "contiki-lib.h"
+#include "sys/clock.h"
 
 #define DEBUG 1
 #if DEBUG
@@ -19,7 +20,7 @@
 #define PRINTF(...)
 #endif /* DEBUG */
 
-/********* Memory blocks for templates and information elements **************/
+/********* Memory blocks for structures **************/
 #define MEMB_IPFIX_NAME ipfix_memb
 #define MEMB_TEMPLATES_NAME template_memb
 #define MEMB_INFO_ELEM_NAME info_elem_memb
@@ -28,6 +29,8 @@ MEMB(MEMB_IPFIX_NAME, ipfix_t, MAX_IPFIX);
 MEMB(MEMB_TEMPLATES_NAME, template_t, MAX_TEMPLATES);
 MEMB(MEMB_INFO_ELEM_NAME, information_element_t, MAX_INFORMATION_ELEMENTS);
 
+
+/********* IPFIX context variables **************/
 static uint32_t sequence_number = IPFIX_SEQUENCE;
 static uint32_t domain_id = IPFIX_DOMAIN_ID;
 /*---------------------------------------------------------------------------*/
