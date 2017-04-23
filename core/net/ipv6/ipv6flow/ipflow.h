@@ -12,55 +12,28 @@
 /*---------------------------------------------------------------------------*/
 #include "net/ip/uip.h"
 /*---------------------------------------------------------------------------*/
-#define HDR_BYTES 21
-#define FLOW_BYTES 20
+#define MAX_FLOWS 10
+
+#define RUNNING 1
+#define IDLE 0
 /*---------------------------------------------------------------------------*/
 CCIF extern process_event_t netflow_event;
-
 static struct process *ipflow_p;
 /*---------------------------------------------------------------------------*/
 
-/** Structure definition **/
-
-typedef struct {
-  uint16_t no_seq;
-  uint16_t battery;
-  uint8_t length;
-  uint8_t parent_id;
-} ipflow_hdr_t;
-
-typedef struct {
+/** Structures definition **/
+typedef struct flow{
   uip_ipaddr_t destination;
   uint16_t size;
   uint16_t packets;
-} ipflow_record_t;
-
-typedef struct {
-  ipflow_hdr_t hdr;
-  ipflow_record_t *records;
-} ipflow_t;
-
-struct ipflow_event_data {
-  uip_ipaddr_t ripaddr;
-  uint16_t size;
-};
-
-
+} flow_t;
 /*---------------------------------------------------------------------------*/
 
 /** Method definition **/
+void launch_ipflow();
+int get_process_status();
+int update_flow_table(uip_ipaddr_t destination, uint16_t size, uint16_t packets);
+int get_number_flows();
+void flush_flow_table();
 
-
-void initialize_ipflow();
-
-int is_launched();
-
-int flow_update(uip_ipaddr_t *ripaddr, int size);
-
-void send_message();
-
-void print_message(uint8_t *message);
-
-void flush();
-/*---------------------------------------------------------------------------*/
 #endif /* IPFLOW_H_ */

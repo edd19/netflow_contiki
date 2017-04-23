@@ -32,6 +32,9 @@ MEMB(MEMB_IPFIX_NAME, ipfix_t, MAX_IPFIX);
 MEMB(MEMB_TEMPLATES_NAME, template_t, MAX_TEMPLATES);
 MEMB(MEMB_INFO_ELEM_NAME, information_element_t, MAX_INFORMATION_ELEMENTS);
 
+memb_init(&MEMB_IPFIX_NAME);
+memb_init(&MEMB_TEMPLATES_NAME);
+memb_init(&MEMB_INFO_ELEM_NAME);
 
 /********* IPFIX context variables **************/
 static uint32_t sequence_number = IPFIX_SEQUENCE;
