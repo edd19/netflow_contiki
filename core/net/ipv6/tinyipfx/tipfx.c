@@ -10,6 +10,7 @@
 /*---------------------------------------------------------------------------*/
 #include "contiki.h"
 #include "contiki-lib.h"
+#include "net/ipv6/tinyipfix/tipfix.h"
 #include "sys/clock.h"
 
 #define DEBUG 1
