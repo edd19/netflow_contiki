@@ -13,6 +13,8 @@
 #include "net/ipv6/tinyipfix/tipfix.h"
 #include "sys/clock.h"
 
+#include <string.h>
+
 #define DEBUG 1
 #if DEBUG
 #include <stdio.h>
@@ -33,12 +35,11 @@ MEMB(MEMB_INFO_ELEM_NAME, information_element_t, MAX_INFORMATION_ELEMENTS);
 
 /********* IPFIX context variables **************/
 static uint32_t sequence_number = IPFIX_SEQUENCE;
-static uint32_t domain_id = IPFIX_DOMAIN_ID;
 /*---------------------------------------------------------------------------*/
 information_element_t *
 create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, void* f)
 {
-  PRINTF("Create new information: id %d, size %d, eid %d\n",
+  PRINTF("Create new information: id %d, size %d, eid %lu\n",
          id, size, eid);
   information_element_t * new_element;
   new_element = memb_alloc(&MEMB_INFO_ELEM_NAME);
@@ -67,6 +68,8 @@ create_ipfix_template(int id)
   new_template -> n = 0;
   new_template -> next = NULL;
   list_init(new_template -> elements);
+
+  return new_template;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -92,7 +95,7 @@ free_template(template_t *template)
 }
 /*---------------------------------------------------------------------------*/
 int
-add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
+add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix)
 {
   PRINTF("Add ipfix header\n");
   uint32_t ipfix_export_time = clock_seconds();
@@ -117,12 +120,12 @@ add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset)
   for(current_element = list_head(template -> elements);
       current_element != NULL;
       current_element = list_item_next(template -> elements)) {
-    memcpy(&ipfix_message[offset+length_template], &(current_element -> id), sizeo(uint16_t));
-    memcpy(&ipfix_message[offset+length_template+2], &(current_element -> size), sizeo(uint16_t));
+    memcpy(&ipfix_message[offset+length_template], &(current_element -> id), sizeof(uint16_t));
+    memcpy(&ipfix_message[offset+length_template+2], &(current_element -> size), sizeof(uint16_t));
     length_template = length_template + 4;
 
-    if(entreprise_id != 0){
-      memcpy(&ipfix_message[offset+length_template+4], &(current_element -> entreprise_id), sizeo(uint32_t));
+    if(current_element -> eid != 0){
+      memcpy(&ipfix_message[offset+length_template+4], &(current_element -> eid), sizeof(uint32_t));
       length_template = length_template + 4;
     }
   }
@@ -138,17 +141,17 @@ int
 add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset)
 {
   PRINTF("Add ipfix records for template %d\n", template -> id);
-  int length_template = IPFIX_SET_HEADER_LENGTH;
+  int length_data = IPFIX_SET_HEADER_LENGTH;
 
   //Set data records
   int i = 0;
-  int number_records = (template -> compute_number_records)()
+  int number_records = (*(template -> compute_number_records))();
   for(i = 0; i < number_records; i++){
     information_element_t *current_element;
     for(current_element = list_head(template -> elements);
     current_element != NULL;
     current_element = list_item_next(template -> elements)) {
-      uint8_t *value = (current_element -> f)(); // TODO free value
+      uint8_t *value = (*(current_element -> f))(); // TODO free value
       memcpy(&ipfix_message[offset + length_data], value, sizeof(uint8_t) * (current_element -> size));
       length_data = length_data + (current_element -> size);
     }
@@ -156,7 +159,7 @@ add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset)
 
   // Set header
   memcpy(&ipfix_message[offset], &(template -> id), sizeof(uint16_t));
-  memcpy(&ipfix_message[offset+2], &length_template, sizeof(uint16_t));
+  memcpy(&ipfix_message[offset+2], &length_data, sizeof(uint16_t));
 
   return offset + length_data;
 }
@@ -167,7 +170,6 @@ create_ipfix()
   ipfix_t *new_ipfix;
   new_ipfix = memb_alloc(&MEMB_IPFIX_NAME);
   new_ipfix -> version = IPFIX_VERSION;
-  new_ipfix -> length = IPFIX_HEADER_LENGTH;
   new_ipfix -> domain_id = IPFIX_DOMAIN_ID;
   new_ipfix -> n = 0;
   list_init(new_ipfix -> templates);
@@ -179,9 +181,7 @@ void
 add_templates_to_ipfix(ipfix_t *ipfix, template_t *template)
 {
   list_add(ipfix -> templates, template);
-  ipfix -> n = list_length(template);
-  ipfix -> length_template = (ipfix -> length_template) + (template -> size_template);
-  ipfix -> length_data = (ipfix -> length_data) + (template -> size_data)
+  ipfix -> n = list_length(template -> elements);
 }
 /*---------------------------------------------------------------------------*/
 void

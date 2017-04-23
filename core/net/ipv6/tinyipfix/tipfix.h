@@ -31,28 +31,28 @@
 
 /** Structures definitions **/
 
-typedef struct {
-  information_element_t *next;
+ typedef struct information_element{
+  struct information_element *next;
   uint16_t id;
   uint16_t size;
-  uint32_t entreprise_id;
-  uint8_t* (*f);         // function that compute element value
+  uint32_t eid;
+  uint8_t* (*f)();         // function that compute element value
 } information_element_t;
 
-typedef struct {
-  template_t *next;
+typedef struct template{
+  struct template *next;
   uint16_t id;
   uint8_t n;
-  int (*compute_number_records);
+  int (*compute_number_records)();
   list_t elements;
-} template_t;
+}template_t;
 
-typedef struct {
+typedef struct ipfix{
   uint16_t version;
   uint32_t domain_id;
   uint8_t n;
   list_t templates;
-} ipfix_t;
+}ipfix_t;
 
 /*---------------------------------------------------------------------------*/
 
@@ -83,3 +83,5 @@ int add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset);
 int tipifx_to_ipfix(uint8_t *tipfix_message, uint8_t *ipfix_message);
 
 /*---------------------------------------------------------------------------*/
+
+#endif
