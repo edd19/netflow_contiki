@@ -114,6 +114,18 @@ get_process_status()
   return status;
 }
 /*---------------------------------------------------------------------------*/
+void
+flush_flow_table()
+{
+  PRINTF("Flush records list\n");
+  flow_t *current_flow;
+  for(current_flow = list_pop(LIST_FLOWS_NAME);
+     current_flow != NULL;
+     current_flow = list_pop(LIST_FLOWS_NAME)) {
+    memb_free(&MEMB_FLOWS_NAME, current_flow);
+ }
+}
+/*---------------------------------------------------------------------------*/
 PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(flow_process, ev, data)
