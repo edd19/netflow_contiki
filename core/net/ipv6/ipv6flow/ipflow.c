@@ -51,6 +51,63 @@ initialize()
   netflow_event = process_alloc_event();
 }
 /*---------------------------------------------------------------------------*/
+static int
+cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out)
+{
+  int i = 0;
+  for(i = 0; i < 16; i++){
+    if ((in -> u8[i]) != (out -> u8[i])){
+      return 0;
+    }
+  }
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
+static flow_t *
+create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
+{
+  flow_t *new_flow;
+  new_flow = memb_alloc(&MEMB_FLOWS_NAME);
+  memcpy(&(new_flow -> destination), destination, 16*sizeof(uint8_t));
+  new_flow -> size = size;
+  new_flow -> packets = packets
+
+  return new_flow;
+}
+/*---------------------------------------------------------------------------*/
+int
+update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
+{
+  // Try to update existent flow
+  flow_t *current_flow;
+  for(current_flow = list_head(LIST_FLOWS_NAME);
+      current_flow != NULL;
+      current_flow = list_item_next(current_flow)) {
+    if (cmp_ipaddr(destination, &(current_flow -> destination)) == 1){
+      PRINTF("Update existent flow record\n");
+      current_flow -> size = size + (current_flow -> size);
+      current_flow -> packets = (current_flow -> packets) + 1;
+      return 1;
+    }
+  }
+
+  // Check if reached maximum size table
+  if (list_length(LIST_FLOWS_NAME) >= MAX_FLOWS){
+    PRINTF("Cannot add new flow record. Flow table is full.\n");
+    return 0;
+  }
+
+  flow_t *new_flow = create_flow(destination, size, packets);
+  list_push(LIST_FLOWS_NAME, new_flow);
+  return 1;
+}
+/*---------------------------------------------------------------------------*/
+int
+get_number_flows()
+{
+  return list_length(LIST_FLOWS_NAME);
+}
+/*---------------------------------------------------------------------------*/
 int
 get_process_status()
 {
