@@ -37,7 +37,7 @@ MEMB(MEMB_INFO_ELEM_NAME, information_element_t, MAX_INFORMATION_ELEMENTS);
 static uint32_t sequence_number = IPFIX_SEQUENCE;
 /*---------------------------------------------------------------------------*/
 information_element_t *
-create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, void* f)
+create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, uint8_t* (*f)())
 {
   PRINTF("Create new information: id %d, size %d, eid %lu\n",
          id, size, eid);
@@ -59,7 +59,7 @@ free_information_element(information_element_t * element)
 }
 /*---------------------------------------------------------------------------*/
 template_t *
-create_ipfix_template(int id)
+create_ipfix_template(int id, int (*compute_number_records)())
 {
   PRINTF("Create new template id.%d\n", id);
   template_t *new_template;
@@ -67,6 +67,7 @@ create_ipfix_template(int id)
   new_template -> id = id;
   new_template -> n = 0;
   new_template -> next = NULL;
+  new_template -> compute_number_records = compute_number_records;
   list_init(new_template -> elements);
 
   return new_template;

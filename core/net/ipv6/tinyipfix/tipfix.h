@@ -59,10 +59,10 @@ typedef struct ipfix{
 /** Methods definitions **/
 
 // Methods to create the structure
-information_element_t *create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, void* f);
+information_element_t *create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, uint8_t* (*f)());
 void free_information_element(information_element_t * element);
 
-template_t *create_ipfix_template(int id);
+template_t *create_ipfix_template(int id, int (*compute_number_records)());
 void add_element_to_template(template_t *template, information_element_t *element);
 void free_template(template_t *template);
 
