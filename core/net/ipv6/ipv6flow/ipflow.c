@@ -171,7 +171,7 @@ ipfix_for_ipflow()
 
   add_element_to_template(template, OCTET_DELTA_COUNT);
   add_element_to_template(template, PACKET_DELTA_COUNT);
-  add_element_to_template(template, DESTINATION_IPV6_ADDRESS);
+  //add_element_to_template(template, DESTINATION_IPV6_ADDRESS);
 
   ipfix_t *ipfix = create_ipfix();
   add_templates_to_ipfix(ipfix, template);
@@ -204,13 +204,15 @@ PROCESS_THREAD(flow_process, ev, data)
   }
   udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
 
+  PROCESS_PAUSE();
+
   send_ipfix_message(IPFIX_TEMPLATE);
 
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
     PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
     etimer_reset(&periodic);
-    send_ipfix_message(IPFIX_TEMPLATE);
+    send_ipfix_message(IPFIX_DATA);
     flush_flow_table();
   }
 

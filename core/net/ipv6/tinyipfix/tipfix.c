@@ -27,6 +27,8 @@ MEMB(MEMB_INFO_ELEM_NAME, information_element_t, MAX_INFORMATION_ELEMENTS);
 static uint32_t sequence_number = IPFIX_SEQUENCE;
 static int initialized;
 /*---------------------------------------------------------------------------*/
+static void convert_to_big_endian(uint8_t *src, uint8_t *dst, int size);
+/*---------------------------------------------------------------------------*/
 void 
 initialize_tipfix()
 {
@@ -106,10 +108,19 @@ int
 add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix)
 {
   uint32_t ipfix_export_time = clock_seconds();
-  memcpy(ipfix_message, &(ipfix -> version), sizeof(uint16_t));
-  memcpy(&ipfix_message[4], &ipfix_export_time, sizeof(uint32_t));
-  memcpy(&ipfix_message[8], &sequence_number, sizeof(uint32_t));
-  memcpy(&ipfix_message[12], &(ipfix -> domain_id), sizeof(uint32_t));
+  uint8_t big_endian_version[2];
+  convert_to_big_endian((uint8_t *)&(ipfix -> version), big_endian_version, 2);
+  uint8_t big_endian_export_time[4];
+  convert_to_big_endian((uint8_t *)&ipfix_export_time, big_endian_export_time, 4);
+  uint8_t big_endian_sequence_number[4];
+  convert_to_big_endian((uint8_t *)&sequence_number, big_endian_sequence_number, 4);
+  uint8_t big_endian_domain_id[4];
+  convert_to_big_endian((uint8_t *)&(ipfix->domain_id), big_endian_domain_id, 4);
+
+  memcpy(ipfix_message, big_endian_version, sizeof(uint16_t));
+  memcpy(&ipfix_message[4], big_endian_export_time, sizeof(uint32_t));
+  memcpy(&ipfix_message[8], big_endian_sequence_number, sizeof(uint32_t));
+  memcpy(&ipfix_message[12], big_endian_domain_id, sizeof(uint32_t));
 
   sequence_number++;
 
@@ -134,18 +145,26 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
         current_element != NULL;
         current_element = current_element -> next) {
       if(type == IPFIX_TEMPLATE){
-        memcpy(&ipfix_message[offset+length_data], &(current_element -> id), sizeof(uint16_t));
-        memcpy(&ipfix_message[offset+length_data+2], &(current_element -> size), sizeof(uint16_t));
+        uint8_t big_endian_id[2];
+        convert_to_big_endian((uint8_t *)&(current_element -> id), big_endian_id, 2);
+        uint8_t big_endian_size[2];
+        convert_to_big_endian((uint8_t *)&(current_element -> size), big_endian_size, 2);
+        memcpy(&ipfix_message[offset+length_data], big_endian_id, sizeof(uint16_t));
+        memcpy(&ipfix_message[offset+length_data+2], big_endian_size, sizeof(uint16_t));
         length_data = length_data + 4;
 
         if(current_element -> eid != 0){
-          memcpy(&ipfix_message[offset+length_data+4], &(current_element -> eid), sizeof(uint32_t));
+          uint8_t big_endian_eid[4];
+          convert_to_big_endian((uint8_t *)&(current_element -> eid), big_endian_eid, 4);
+          memcpy(&ipfix_message[offset+length_data+4], big_endian_eid, sizeof(uint32_t));
           length_data = length_data + 4;
         }
       }
       else{
         uint8_t *value = (current_element -> f)();
-        memcpy(&ipfix_message[offset + length_data], value, sizeof(uint8_t) * (current_element -> size));
+        uint8_t big_endian_value[current_element -> size];
+        convert_to_big_endian(value, big_endian_value, current_element -> size);
+        memcpy(&ipfix_message[offset + length_data], big_endian_value, sizeof(uint8_t) * (current_element -> size));
         length_data = length_data + (current_element -> size);
       }
     }
@@ -153,7 +172,7 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
 
   // Set header
   memcpy(&ipfix_message[offset], &(template -> id), sizeof(uint16_t));
-  memcpy(&ipfix_message[offset+2], &length_data, sizeof(uint16_t));
+  memcpy(&ipfix_message[offset+2], &(template -> n), sizeof(uint16_t));
 
   return offset + length_data;
 }
@@ -215,8 +234,19 @@ generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
     offset = add_ipfix_records_or_template(ipfix_message, current_template, offset, type);
   }
 
-  memcpy(&ipfix_message[2], (uint16_t *)&offset, sizeof(uint16_t));
+  uint8_t big_endian_size[2];
+  convert_to_big_endian((uint8_t *)(uint16_t *)&offset, big_endian_size, 2);
+  memcpy(&ipfix_message[2], big_endian_size, sizeof(uint16_t));
 
   return offset;
+}
+/*---------------------------------------------------------------------------*/
+static void
+convert_to_big_endian(uint8_t *src, uint8_t *dst, int size)
+{
+  int i = 0;
+  for(i = 0; i < size; i++){
+    dst[size-i-1] = src[i];
+  }
 }
 /*---------------------------------------------------------------------------*/
