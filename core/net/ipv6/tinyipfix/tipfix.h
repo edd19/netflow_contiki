@@ -42,7 +42,6 @@
 typedef struct template{
   struct template *next;
   uint16_t id;
-  uint8_t n;
   int (*compute_number_records)();
   list_t elements;
 }template_t;
@@ -50,7 +49,6 @@ typedef struct template{
 typedef struct ipfix{
   uint16_t version;
   uint32_t domain_id;
-  uint8_t n;
   list_t templates;
 }ipfix_t;
 
@@ -75,10 +73,8 @@ int generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type);
 
 // Methods to create ipfix or tipifx message
 int add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix);
-void set_ipfix_length(uint8_t *ipfix_message, uint16_t length);
 int add_tipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix);
-int add_ipfix_template(uint8_t *ipfix_message, template_t *template, int offset);
-int add_ipfix_records(uint8_t *ipfix_message, template_t *template, int offset);
+int add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int offset, int type);
 
 
 //Methods to convert tiny ipfix to ipfix

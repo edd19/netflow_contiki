@@ -9,21 +9,12 @@
 /*---------------------------------------------------------------------------*/
 
 #include "contiki.h"
-#include "contiki-lib.h"
+#include "lib/list.h"
+#include "lib/memb.h"
 #include "net/ip/uip-udp-packet.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 #include "net/ipv6/tinyipfix/tipfix.h"
-#include "sys/clock.h"
 
-#include <stdlib.h>
-
-#define DEBUG 1
-#if DEBUG
-#include <stdio.h>
-#define PRINTF(...) printf(__VA_ARGS__)
-#else
-#define PRINTF(...)
-#endif /* DEBUG */
 /*---------------------------------------------------------------------------*/
 #define LIST_FLOWS_NAME flow_table
 #define MEMB_FLOWS_NAME flow_memb
@@ -48,16 +39,13 @@ PROCESS(flow_process, "Ip flows");
 void
 launch_ipflow()
 {
-  PRINTF("Launch ipflow process\n");
   status = 1;
   process_start(&flow_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
 static void
 initialize()
-{
-  PRINTF("Initialize ipflow\n");
-  
+{  
   list_init(LIST_FLOWS_NAME);
   memb_init(&MEMB_FLOWS_NAME);
 
@@ -81,8 +69,7 @@ cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out)
 static flow_t *
 create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
 {
-  flow_t *new_flow;
-  new_flow = memb_alloc(&MEMB_FLOWS_NAME);
+  flow_t *new_flow = memb_alloc(&MEMB_FLOWS_NAME);
   memcpy(&(new_flow -> destination), destination, 16*sizeof(uint8_t));
   new_flow -> size = size;
   new_flow -> packets = packets;
@@ -94,7 +81,6 @@ int
 update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
 {
   if(get_process_status() != 1){
-    PRINTF("Process not started\n");
     return 0;
   }
 
@@ -104,7 +90,6 @@ update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
       current_flow != NULL;
       current_flow = list_item_next(current_flow)) {
     if (cmp_ipaddr(destination, &(current_flow -> destination)) == 1){
-      PRINTF("Update existent flow record\n");
       current_flow -> size = size + (current_flow -> size);
       current_flow -> packets = (current_flow -> packets) + 1;
       return 1;
@@ -113,7 +98,6 @@ update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
 
   // Check if reached maximum size table
   if (get_number_flows() >= MAX_FLOWS){
-    PRINTF("Cannot add new flow record. Flow table is full.\n");
     return 0;
   }
 
@@ -141,10 +125,9 @@ void
 flush_flow_table()
 {
   if(get_process_status() != 1){
-    PRINTF("Process not started\n");
+    return;
   }
 
-  PRINTF("Flush records list\n");
   flow_t *current_flow;
   for(current_flow = list_pop(LIST_FLOWS_NAME);
      current_flow != NULL;
@@ -216,7 +199,6 @@ PROCESS_THREAD(flow_process, ev, data)
 
   exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL); 
   if(exporter_connection == NULL) {
-    PRINTF("No UDP connection available, exiting the process!\n");
     PROCESS_EXIT();
   }
   udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
