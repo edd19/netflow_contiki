@@ -45,6 +45,6 @@ uint8_t * get_destination_address();
 #define OCTET_DELTA_COUNT create_ipfix_information_element(1, 2, 0, &get_octet_delta_count)
 #define PACKET_DELTA_COUNT create_ipfix_information_element(2, 2, 0, &get_packet_delta_count)
 // #define SOURCE_IPV6_ADDRESS create_ipfix_information_element(27, 16, 0, &get_source_address);
-#define DESTINATION_IPV6_ADDRESS create_ipfix_information_element(28, 16, 0, &get_destination_address);
+#define DESTINATION_IPV6_ADDRESS create_ipfix_information_element(28, 16, 0, &get_destination_address)
 
 #endif /* IPFLOW_H_ */

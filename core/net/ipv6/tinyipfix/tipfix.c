@@ -32,12 +32,22 @@ MEMB(MEMB_IPFIX_NAME, ipfix_t, MAX_IPFIX);
 MEMB(MEMB_TEMPLATES_NAME, template_t, MAX_TEMPLATES);
 MEMB(MEMB_INFO_ELEM_NAME, information_element_t, MAX_INFORMATION_ELEMENTS);
 
-memb_init(&MEMB_IPFIX_NAME);
-memb_init(&MEMB_TEMPLATES_NAME);
-memb_init(&MEMB_INFO_ELEM_NAME);
+
 
 /********* IPFIX context variables **************/
 static uint32_t sequence_number = IPFIX_SEQUENCE;
+static int initialized = 0;
+/*---------------------------------------------------------------------------*/
+void 
+initialize_tipfix()
+{
+  if(initialized != 0){
+    memb_init(&MEMB_IPFIX_NAME);
+    memb_init(&MEMB_TEMPLATES_NAME);
+    memb_init(&MEMB_INFO_ELEM_NAME);
+    initialized = 1;
+  }
+}
 /*---------------------------------------------------------------------------*/
 information_element_t *
 create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, uint8_t* (*f)())

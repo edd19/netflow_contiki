@@ -58,6 +58,8 @@ typedef struct ipfix{
 
 /** Methods definitions **/
 
+void initialize_tipfix();
+
 // Methods to create the structure
 information_element_t *create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, uint8_t* (*f)());
 void free_information_element(information_element_t * element);

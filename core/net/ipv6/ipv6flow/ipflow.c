@@ -10,6 +10,7 @@
 
 #include "contiki.h"
 #include "contiki-lib.h"
+#include "net/ip/uip-udp-packet.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 #include "net/ipv6/tinyipfix/tipfix.h"
 #include "sys/clock.h"
@@ -26,7 +27,9 @@
 /*---------------------------------------------------------------------------*/
 #define LIST_FLOWS_NAME flow_table
 #define MEMB_FLOWS_NAME flow_memb
+MEMB(MEMB_FLOWS_NAME, flow_t, MAX_FLOWS);
 
+LIST(LIST_FLOWS_NAME);
 
 static int status = 0;
 static ipfix_t *ipflow_ipfix = NULL;
@@ -40,6 +43,8 @@ static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t p
 static ipfix_t * ipfix_for_ipflow();
 static void send_ipfix_message(int type);
 /*---------------------------------------------------------------------------*/
+PROCESS(flow_process, "Ip flows");
+/*---------------------------------------------------------------------------*/
 void
 launch_ipflow()
 {
@@ -52,14 +57,9 @@ static void
 initialize()
 {
   PRINTF("Initialize ipflow\n");
-  LIST(LIST_FLOWS_NAME);
+  
   list_init(LIST_FLOWS_NAME);
-
-  MEMB(MEMB_FLOWS_NAME, flow_t, MAX_FLOWS);
   memb_init(&MEMB_FLOWS_NAME);
-
-  ipflow_p = PROCESS_CURRENT();
-  netflow_event = process_alloc_event();
 
   uip_ip6addr(&collector_addr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
 
@@ -85,7 +85,7 @@ create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets)
   new_flow = memb_alloc(&MEMB_FLOWS_NAME);
   memcpy(&(new_flow -> destination), destination, 16*sizeof(uint8_t));
   new_flow -> size = size;
-  new_flow -> packets = packets
+  new_flow -> packets = packets;
 
   return new_flow;
 }
@@ -142,7 +142,6 @@ flush_flow_table()
 {
   if(get_process_status() != 1){
     PRINTF("Process not started\n");
-    return 0;
   }
 
   PRINTF("Flush records list\n");
@@ -200,12 +199,11 @@ static void
 send_ipfix_message(int type)
 {
   uint8_t message[200];
-  int length = generate_ipfix_message(message, ipflow_ipfix, type)
+  int length = generate_ipfix_message(message, ipflow_ipfix, type);
 
-  uip_udp_packet_sendto(exporter_connection, &message, length * sizeof(uint8_t), &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
+  uip_udp_packet_sendto(exporter_connection, &message, length * sizeof(uint8_t), 
+                        &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
 }
-/*---------------------------------------------------------------------------*/
-PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(flow_process, ev, data)
 {
@@ -214,6 +212,7 @@ PROCESS_THREAD(flow_process, ev, data)
   PROCESS_BEGIN();
 
   initialize();
+  initialize_tipfix();
 
   exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL); 
   if(exporter_connection == NULL) {
@@ -222,7 +221,7 @@ PROCESS_THREAD(flow_process, ev, data)
   }
   udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
 
-  send_ipfix_message(IPFIX_TEMPLATE)
+  send_ipfix_message(IPFIX_TEMPLATE);
 
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
