@@ -8,7 +8,6 @@
  *         Ivan Ahad <ivan.abdelahad@student.uclouvain.be>
  */
 /*---------------------------------------------------------------------------*/
-#include "lib/list.h"
 #include "lib/memb.h"
 #include "net/ipv6/tinyipfix/tipfix.h"
 #include "sys/clock.h"
@@ -65,7 +64,8 @@ create_ipfix_template(int id, int (*compute_number_records)())
   new_template -> id = id;
   new_template -> next = NULL;
   new_template -> compute_number_records = compute_number_records;
-  list_init(new_template -> elements);
+  new_template -> n = 0;
+  new_template -> element_head = NULL;
 
   return new_template;
 }
@@ -73,7 +73,17 @@ create_ipfix_template(int id, int (*compute_number_records)())
 void
 add_element_to_template(template_t *template, information_element_t *element)
 {
-  list_add(template -> elements, element);
+  if(template -> element_head == NULL){
+    template -> element_head = element;
+  }
+  else{
+    information_element_t *current_element; 
+    for(current_element = template -> element_head;
+      current_element -> next != NULL; 
+      current_element = current_element -> next){}
+    current_element -> next = element;
+  }
+  template -> n = (template -> n) + 1;
 }
 /*---------------------------------------------------------------------------*/
 void
@@ -81,11 +91,13 @@ free_template(template_t *template)
 {
   // Free all elements
   information_element_t *current_element;
-  for(current_element = list_pop(template -> elements);
+  for(current_element = template -> element_head;
       current_element != NULL;
-      current_element = list_pop(template -> elements)) {
+      current_element = current_element -> next) {
     free_information_element(current_element);
   }
+  template -> element_head = NULL;
+  template -> n = 0;
   // Free template
   memb_free(&MEMB_TEMPLATES_NAME, template);
 }
@@ -113,14 +125,14 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
   int i = 0;
   int number_records = 1;
   if (type != IPFIX_TEMPLATE){
-    number_records = (*(template -> compute_number_records))();
+    number_records = (template -> compute_number_records)();
   }
 
   for(i = 0; i < number_records; i++){
     information_element_t *current_element;
-    for(current_element = list_head(template -> elements);
-    current_element != NULL;
-    current_element = list_item_next(template -> elements)) {
+    for(current_element = template -> element_head;
+        current_element != NULL;
+        current_element = current_element -> next) {
       if(type == IPFIX_TEMPLATE){
         memcpy(&ipfix_message[offset+length_data], &(current_element -> id), sizeof(uint16_t));
         memcpy(&ipfix_message[offset+length_data+2], &(current_element -> size), sizeof(uint16_t));
@@ -132,7 +144,7 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
         }
       }
       else{
-        uint8_t *value = (*(current_element -> f))();
+        uint8_t *value = (current_element -> f)();
         memcpy(&ipfix_message[offset + length_data], value, sizeof(uint8_t) * (current_element -> size));
         length_data = length_data + (current_element -> size);
       }
@@ -152,7 +164,8 @@ create_ipfix()
   ipfix_t *new_ipfix = memb_alloc(&MEMB_IPFIX_NAME);
   new_ipfix -> version = IPFIX_VERSION;
   new_ipfix -> domain_id = IPFIX_DOMAIN_ID;
-  list_init(new_ipfix -> templates);
+  new_ipfix -> n = 0;
+  new_ipfix -> template_head = NULL;
 
   return new_ipfix;
 }
@@ -160,18 +173,30 @@ create_ipfix()
 void
 add_templates_to_ipfix(ipfix_t *ipfix, template_t *template)
 {
-  list_add(ipfix -> templates, template);
+  if(ipfix -> template_head == NULL){
+    ipfix -> template_head = template;
+  }
+  else{
+    template_t *current_template;
+    for(current_template = ipfix -> template_head;
+      current_template -> next != NULL; 
+      current_template = current_template -> next){}
+    current_template -> next = template;
+  }
+  ipfix -> n = (ipfix -> n) + 1;
 }
 /*---------------------------------------------------------------------------*/
 void
 free_ipfix(ipfix_t *ipfix)
 {
   template_t *current_template;
-  for(current_template = list_pop(ipfix -> templates);
+  for(current_template = ipfix -> template_head;
       current_template != NULL;
-      current_template = list_pop(ipfix -> templates)) {
+      current_template = current_template -> next) {
     free_template(current_template);
   }
+  ipfix -> template_head = NULL;
+  ipfix -> n = 0;
 
   memb_free(&MEMB_IPFIX_NAME, ipfix);
 
@@ -184,9 +209,9 @@ generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
   offset = add_ipfix_header(ipfix_message, ipfix);
 
   template_t *current_template;
-  for(current_template = list_head(ipfix -> templates);
+  for(current_template = ipfix -> template_head;
       current_template != NULL;
-      current_template = list_item_next(current_template)) {
+      current_template = current_template -> next) {
     offset = add_ipfix_records_or_template(ipfix_message, current_template, offset, type);
   }
 

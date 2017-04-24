@@ -33,6 +33,7 @@ static int cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out);
 static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);
 static ipfix_t * ipfix_for_ipflow();
 static void send_ipfix_message(int type);
+
 /*---------------------------------------------------------------------------*/
 PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
@@ -207,12 +208,10 @@ PROCESS_THREAD(flow_process, ev, data)
 
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
-    PROCESS_YIELD();
-    if(etimer_expired(&periodic)) {
-      etimer_reset(&periodic);
-      send_ipfix_message(IPFIX_DATA);
-      flush_flow_table();
-    }
+    PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
+    etimer_reset(&periodic);
+    send_ipfix_message(IPFIX_TEMPLATE);
+    flush_flow_table();
   }
 
   PROCESS_END();

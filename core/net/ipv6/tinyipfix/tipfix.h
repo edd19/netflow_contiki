@@ -7,8 +7,6 @@
  *         Ivan Ahad <ivan.abdelahad@student.uclouvain.be>
  */
 /*---------------------------------------------------------------------------*/
-#include "lib/list.h"
-/*---------------------------------------------------------------------------*/
 #ifndef TIPFIX_H_
 #define TIPFIX_H_
 /*---------------------------------------------------------------------------*/
@@ -30,26 +28,27 @@
 #define IPFIX_DATA 2
 
 /** Structures definitions **/
-
  typedef struct information_element{
   struct information_element *next;
   uint16_t id;
   uint16_t size;
   uint32_t eid;
-  uint8_t* (*f)();         // function that compute element value
+  uint8_t *(*f)();         // function that compute element value
 } information_element_t;
 
 typedef struct template{
   struct template *next;
   uint16_t id;
   int (*compute_number_records)();
-  list_t elements;
+  int n;
+  information_element_t *element_head;
 }template_t;
 
 typedef struct ipfix{
   uint16_t version;
   uint32_t domain_id;
-  list_t templates;
+  int n;
+  template_t *template_head;
 }ipfix_t;
 
 /*---------------------------------------------------------------------------*/
@@ -59,7 +58,7 @@ typedef struct ipfix{
 void initialize_tipfix();
 
 // Methods to create the structure
-information_element_t *create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, uint8_t* (*f)());
+information_element_t *create_ipfix_information_element(uint16_t id, uint16_t size, uint32_t eid, uint8_t *(*f)());
 void free_information_element(information_element_t * element);
 
 template_t *create_ipfix_template(int id, int (*compute_number_records)());
