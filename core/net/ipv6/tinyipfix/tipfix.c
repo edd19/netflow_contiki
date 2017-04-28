@@ -170,9 +170,20 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
     }
   }
 
-  // Set header
-  memcpy(&ipfix_message[offset], &(template -> id), sizeof(uint16_t));
-  memcpy(&ipfix_message[offset+2], &(template -> n), sizeof(uint16_t));
+  //Set header
+  uint8_t big_endian_template_id[2];
+  convert_to_big_endian((uint8_t *)&(template -> id), big_endian_template_id, 2);
+  memcpy(&ipfix_message[offset], big_endian_template_id, sizeof(uint16_t));
+  if(type == IPFIX_TEMPLATE){
+    uint8_t big_endian_count[2];
+    convert_to_big_endian((uint8_t *)&(template -> n), big_endian_count, sizeof(uint16_t));
+    memcpy(&ipfix_message[offset+2], big_endian_count, sizeof(uint16_t));
+  }
+  else{
+    uint8_t big_endian_length_data[2];
+    convert_to_big_endian((uint8_t *)&length_data, big_endian_length_data, sizeof(uint16_t));
+    memcpy(&ipfix_message[offset+2], big_endian_length_data, sizeof(uint16_t));
+  }
 
   return offset + length_data;
 }
@@ -226,12 +237,27 @@ generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 {
   int offset = 0;
   offset = add_ipfix_header(ipfix_message, ipfix);
+  if(type == IPFIX_TEMPLATE){
+    offset = offset + 4;
+  }
 
   template_t *current_template;
   for(current_template = ipfix -> template_head;
       current_template != NULL;
       current_template = current_template -> next) {
     offset = add_ipfix_records_or_template(ipfix_message, current_template, offset, type);
+  }
+
+  if(type == IPFIX_TEMPLATE){
+    uint16_t template_id = 2;
+    uint8_t big_endian_template_id[2];
+    convert_to_big_endian((uint8_t *)&template_id, big_endian_template_id, 2);
+    memcpy(&ipfix_message[IPFIX_HEADER_LENGTH], big_endian_template_id, sizeof(uint16_t));
+
+    uint8_t big_endian_length_data[2];
+    uint16_t length_set = offset - IPFIX_HEADER_LENGTH;
+    convert_to_big_endian((uint8_t *)&length_set, big_endian_length_data, 2);
+    memcpy(&ipfix_message[IPFIX_HEADER_LENGTH+2], big_endian_length_data, sizeof(uint16_t));
   }
 
   uint8_t big_endian_size[2];

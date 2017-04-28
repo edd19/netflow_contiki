@@ -212,6 +212,7 @@ PROCESS_THREAD(flow_process, ev, data)
   while(1){
     PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
     etimer_reset(&periodic);
+    //send_ipfix_message(IPFIX_TEMPLATE);
     send_ipfix_message(IPFIX_DATA);
     flush_flow_table();
   }

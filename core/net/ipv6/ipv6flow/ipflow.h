@@ -15,7 +15,7 @@
 /*---------------------------------------------------------------------------*/
 #define MAX_FLOWS 10
 #define IPFLOW_EXPORT_INTERVAL 1 // minute
-#define COLLECTOR_UDP_PORT 9995
+#define COLLECTOR_UDP_PORT 9997
 /*---------------------------------------------------------------------------*/
 
 /** Structures definition **/
