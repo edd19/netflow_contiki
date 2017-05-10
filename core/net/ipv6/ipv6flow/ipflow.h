@@ -11,56 +11,42 @@
 #define IPFLOW_H_
 /*---------------------------------------------------------------------------*/
 #include "net/ip/uip.h"
+#include "net/ipv6/tinyipfix/tipfix.h"
 /*---------------------------------------------------------------------------*/
-#define HDR_BYTES 21
-#define FLOW_BYTES 20
-/*---------------------------------------------------------------------------*/
-CCIF extern process_event_t netflow_event;
-
-static struct process *ipflow_p;
+#define MAX_FLOWS 10
+#define IPFLOW_EXPORT_INTERVAL 1 // minute
+#define COLLECTOR_UDP_PORT 9995
 /*---------------------------------------------------------------------------*/
 
-/** Structure definition **/
-
-typedef struct {
-  uint16_t no_seq;
-  uint16_t battery;
-  uint8_t length;
-  uint8_t parent_id;
-} ipflow_hdr_t;
-
-typedef struct {
+/** Structures definition **/
+typedef struct flow{
   uip_ipaddr_t destination;
   uint16_t size;
   uint16_t packets;
-} ipflow_record_t;
-
-typedef struct {
-  ipflow_hdr_t hdr;
-  ipflow_record_t *records;
-} ipflow_t;
-
-struct ipflow_event_data {
-  uip_ipaddr_t ripaddr;
-  uint16_t size;
-};
-
-
+  struct flow *next;
+} flow_t;
 /*---------------------------------------------------------------------------*/
 
 /** Method definition **/
+void launch_ipflow();
+int get_process_status();
+int update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);
+int get_number_flows();
+void flush_flow_table();
 
+uint8_t * get_octet_delta_count();
+uint8_t * get_packet_delta_count();
+// uint8_t * get_source_address();
+uint8_t * get_destination_address();
+uint8_t * get_destination_node_id();
 
-void initialize_ipflow();
-
-int is_launched();
-
-int flow_update(uip_ipaddr_t *ripaddr, int size);
-
-void send_message();
-
-void print_message(uint8_t *message);
-
-void flush();
 /*---------------------------------------------------------------------------*/
+
+/** INFORMATION ELEMENTS FIELDS **/
+#define OCTET_DELTA_COUNT create_ipfix_information_element(1, 2, 0, &get_octet_delta_count)
+#define PACKET_DELTA_COUNT create_ipfix_information_element(2, 2, 0, &get_packet_delta_count)
+// #define SOURCE_IPV6_ADDRESS create_ipfix_information_element(27, 16, 0, &get_source_address);
+#define DESTINATION_IPV6_ADDRESS create_ipfix_information_element(28, 16, 0, &get_destination_address)
+#define DESTINATION_NODE_ID create_ipfix_information_element(32769, 2, 20763, &get_destination_node_id)
+
 #endif /* IPFLOW_H_ */

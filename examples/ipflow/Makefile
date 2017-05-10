@@ -1,5 +1,4 @@
-all: netflow
-APPS=servreg-hack
+all: exporter
 CONTIKI=../..
 
 CONTIKI_WITH_IPV6 = 1

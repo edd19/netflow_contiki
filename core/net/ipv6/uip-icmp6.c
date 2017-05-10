@@ -38,7 +38,7 @@
 /**
  * \file
  *    ICMPv6 (RFC 4443) implementation, with message and error handling
- * \author Julien Abeille <jabeille@cisco.com> 
+ * \author Julien Abeille <jabeille@cisco.com>
  * \author Mathilde Durvy <mdurvy@cisco.com>
  */
 
@@ -317,11 +317,8 @@ uip_icmp6_send(const uip_ipaddr_t *dest, int type, int code, int payload_len)
 
   uip_len = UIP_IPH_LEN + UIP_ICMPH_LEN + payload_len;
   // IPFLOW
-  if (is_launched() == 1){
-    struct ipflow_event_data *event_data = (struct ipflow_event_data *) malloc(18 * sizeof(uint8_t));
-    memcpy(&(event_data -> ripaddr), &UIP_IP_BUF->destipaddr, sizeof(uint8_t) * 16);
-    event_data -> size = uip_len;
-    process_post(ipflow_p, netflow_event, event_data);
+  if (get_process_status() == 1){
+    update_flow_table(&UIP_IP_BUF->destipaddr, uip_len, 1);
   }
   tcpip_ipv6_output();
 }

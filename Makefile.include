@@ -74,7 +74,7 @@ endif
 
 ifeq ($(CONTIKI_WITH_RIME),1)
   HAS_STACK = 1
-  CFLAGS += -DNETSTACK_CONF_WITH_RIME=1 
+  CFLAGS += -DNETSTACK_CONF_WITH_RIME=1
   MODULES += core/net/rime
 endif
 
@@ -90,7 +90,7 @@ ifeq ($(CONTIKI_WITH_IPV6),1)
   ifneq ($(CONTIKI_WITH_RPL),0)
   	CONTIKI_WITH_RPL = 1
   endif
-  MODULES += core/net/ipv6 core/net/ip core/net/ipv6/ipv6flow
+  MODULES += core/net/ipv6 core/net/ip core/net/ipv6/tinyipfix core/net/ipv6/ipv6flow
 endif
 
 ifeq ($(CONTIKI_WITH_RPL),1)
