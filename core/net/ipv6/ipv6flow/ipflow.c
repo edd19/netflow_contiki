@@ -164,6 +164,13 @@ get_destination_address()
   return (uint8_t *)&(flow -> destination);
 }
 /*---------------------------------------------------------------------------*/
+uint8_t *
+get_destination_node_id()
+{
+  flow_t *flow =list_pop(LIST_FLOWS_NAME);
+  return (uint8_t *)&(flow -> destination);
+}
+/*---------------------------------------------------------------------------*/
 static ipfix_t *
 ipfix_for_ipflow()
 {
@@ -171,6 +178,7 @@ ipfix_for_ipflow()
 
   add_element_to_template(template, OCTET_DELTA_COUNT);
   add_element_to_template(template, PACKET_DELTA_COUNT);
+  add_element_to_template(template, DESTINATION_NODE_ID);
   //add_element_to_template(template, DESTINATION_IPV6_ADDRESS);
 
   ipfix_t *ipfix = create_ipfix();
@@ -206,13 +214,11 @@ PROCESS_THREAD(flow_process, ev, data)
 
   PROCESS_PAUSE();
 
-  send_ipfix_message(IPFIX_TEMPLATE);
-
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
     PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
     etimer_reset(&periodic);
-    //send_ipfix_message(IPFIX_TEMPLATE);
+    send_ipfix_message(IPFIX_TEMPLATE);
     send_ipfix_message(IPFIX_DATA);
     flush_flow_table();
   }
