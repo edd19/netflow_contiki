@@ -28,6 +28,7 @@ static ipfix_t *ipflow_ipfix = NULL;
 
 static struct uip_udp_conn *exporter_connection;
 static uip_ipaddr_t collector_addr;
+static flow_t * temp_flow;
 /*---------------------------------------------------------------------------*/
 static void initialize();
 static int cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out);
@@ -52,6 +53,8 @@ initialize()
   memb_init(&MEMB_FLOWS_NAME);
 
   uip_ip6addr(&collector_addr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
+
+  temp_flow = NULL;
 
   ipflow_ipfix = ipfix_for_ipflow();
 }
@@ -141,14 +144,14 @@ flush_flow_table()
 uint8_t *
 get_octet_delta_count()
 {
-  flow_t *flow = list_head(LIST_FLOWS_NAME);
+  flow_t *flow = temp_flow;
   return (uint8_t *)&(flow -> size) ;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t *
 get_packet_delta_count()
 {
-  flow_t *flow = list_head(LIST_FLOWS_NAME);
+  flow_t *flow = temp_flow;
   return (uint8_t *)&(flow -> packets);
 }
 /*---------------------------------------------------------------------------*/
@@ -161,8 +164,9 @@ get_source_node_id()
 uint8_t *
 get_destination_node_id()
 {
-  flow_t *flow =list_pop(LIST_FLOWS_NAME);
-  return (uint8_t *)&(flow -> destination);
+  flow_t *flow = temp_flow;
+  temp_flow = temp_flow -> next;
+  return (flow -> destination).u8;
 }
 /*---------------------------------------------------------------------------*/
 static ipfix_t *
@@ -212,6 +216,7 @@ PROCESS_THREAD(flow_process, ev, data)
   while(1){
     PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
     etimer_reset(&periodic);
+    temp_flow = list_head(LIST_FLOWS_NAME);
     send_ipfix_message(IPFIX_TEMPLATE);
     send_ipfix_message(IPFIX_DATA);
     flush_flow_table();
