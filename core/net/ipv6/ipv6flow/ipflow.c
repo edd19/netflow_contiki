@@ -35,7 +35,6 @@ static int cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out);
 static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);
 static ipfix_t * ipfix_for_ipflow();
 static void send_ipfix_message(int type);
-
 /*---------------------------------------------------------------------------*/
 PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
@@ -144,15 +143,13 @@ flush_flow_table()
 uint8_t *
 get_octet_delta_count()
 {
-  flow_t *flow = temp_flow;
-  return (uint8_t *)&(flow -> size) ;
+  return (uint8_t *)&(temp_flow -> size) ;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t *
 get_packet_delta_count()
 {
-  flow_t *flow = temp_flow;
-  return (uint8_t *)&(flow -> packets);
+  return (uint8_t *)&(temp_flow -> packets);
 }
 /*---------------------------------------------------------------------------*/
 uint8_t *
@@ -212,12 +209,18 @@ PROCESS_THREAD(flow_process, ev, data)
 
   PROCESS_PAUSE();
 
+  // Send template
+  etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*20*CLOCK_SECOND);
+  PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
+  send_ipfix_message(IPFIX_TEMPLATE);
+
+  // Send data
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
     PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
     etimer_reset(&periodic);
+
     temp_flow = list_head(LIST_FLOWS_NAME);
-    send_ipfix_message(IPFIX_TEMPLATE);
     send_ipfix_message(IPFIX_DATA);
     flush_flow_table();
   }
