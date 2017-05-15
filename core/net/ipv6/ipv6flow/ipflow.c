@@ -14,6 +14,7 @@
 #include "net/ip/uip-udp-packet.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 #include "net/ipv6/tinyipfix/tipfix.h"
+#include "sys/node-id.h"
 
 /*---------------------------------------------------------------------------*/
 #define LIST_FLOWS_NAME flow_table
@@ -46,7 +47,7 @@ launch_ipflow()
 /*---------------------------------------------------------------------------*/
 static void
 initialize()
-{  
+{
   list_init(LIST_FLOWS_NAME);
   memb_init(&MEMB_FLOWS_NAME);
 
@@ -151,17 +152,10 @@ get_packet_delta_count()
   return (uint8_t *)&(flow -> packets);
 }
 /*---------------------------------------------------------------------------*/
-// uint8_t *
-// get_source_address()
-// {
-//   // TODO get host address
-// }
-/*---------------------------------------------------------------------------*/
 uint8_t *
-get_destination_address()
+get_source_node_id()
 {
-  flow_t *flow =list_pop(LIST_FLOWS_NAME);
-  return (uint8_t *)&(flow -> destination);
+  return (uint8_t *)&node_id;
 }
 /*---------------------------------------------------------------------------*/
 uint8_t *
@@ -178,8 +172,8 @@ ipfix_for_ipflow()
 
   add_element_to_template(template, OCTET_DELTA_COUNT);
   add_element_to_template(template, PACKET_DELTA_COUNT);
+  add_element_to_template(template, SOURCE_NODE_ID);
   add_element_to_template(template, DESTINATION_NODE_ID);
-  //add_element_to_template(template, DESTINATION_IPV6_ADDRESS);
 
   ipfix_t *ipfix = create_ipfix();
   add_templates_to_ipfix(ipfix, template);
@@ -193,7 +187,7 @@ send_ipfix_message(int type)
   uint8_t message[200];
   int length = generate_ipfix_message(message, ipflow_ipfix, type);
 
-  uip_udp_packet_sendto(exporter_connection, &message, length * sizeof(uint8_t), 
+  uip_udp_packet_sendto(exporter_connection, &message, length * sizeof(uint8_t),
                         &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
 }
 /*---------------------------------------------------------------------------*/
@@ -206,7 +200,7 @@ PROCESS_THREAD(flow_process, ev, data)
   initialize();
   initialize_tipfix();
 
-  exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL); 
+  exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL);
   if(exporter_connection == NULL) {
     PROCESS_EXIT();
   }
