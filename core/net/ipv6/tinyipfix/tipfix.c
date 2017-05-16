@@ -29,7 +29,7 @@ static int initialized;
 /*---------------------------------------------------------------------------*/
 static void convert_to_big_endian(uint8_t *src, uint8_t *dst, int size);
 /*---------------------------------------------------------------------------*/
-void 
+void
 initialize_tipfix()
 {
   if(initialized != 0){
@@ -79,9 +79,9 @@ add_element_to_template(template_t *template, information_element_t *element)
     template -> element_head = element;
   }
   else{
-    information_element_t *current_element; 
+    information_element_t *current_element;
     for(current_element = template -> element_head;
-      current_element -> next != NULL; 
+      current_element -> next != NULL;
       current_element = current_element -> next){}
     current_element -> next = element;
   }
@@ -187,6 +187,65 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
 
   return offset + length_data;
 }
+/*---------------------------------------------------------------------------*/4
+/*---------------------------------------------------------------------------*/
+int
+add_tipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int offset, int type)
+{
+  int length_data = IPFIX_SET_HEADER_LENGTH;
+
+  //Set data records
+  int i = 0;
+  int number_records = 1;
+  if (type != IPFIX_TEMPLATE){
+    length_data = 0;
+    number_records = (template -> compute_number_records)();
+  }
+
+  for(i = 0; i < number_records; i++){
+    information_element_t *current_element;
+    for(current_element = template -> element_head;
+        current_element != NULL;
+        current_element = current_element -> next) {
+      if(type == IPFIX_TEMPLATE){
+        uint8_t big_endian_id[2];
+        convert_to_big_endian((uint8_t *)&(current_element -> id), big_endian_id, 2);
+        uint8_t big_endian_size[2];
+        convert_to_big_endian((uint8_t *)&(current_element -> size), big_endian_size, 2);
+        memcpy(&ipfix_message[offset+length_data], big_endian_id, sizeof(uint16_t));
+        memcpy(&ipfix_message[offset+length_data+2], big_endian_size, sizeof(uint16_t));
+        length_data = length_data + 4;
+
+        if(current_element -> eid != 0){
+          uint8_t big_endian_eid[4];
+          convert_to_big_endian((uint8_t *)&(current_element -> eid), big_endian_eid, 4);
+          memcpy(&ipfix_message[offset+length_data+4], big_endian_eid, sizeof(uint32_t));
+          length_data = length_data + 4;
+        }
+      }
+      else{
+        uint8_t *value = (current_element -> f)();
+        uint8_t big_endian_value[current_element -> size];
+        convert_to_big_endian(value, big_endian_value, current_element -> size);
+        memcpy(&ipfix_message[offset + length_data], big_endian_value, sizeof(uint8_t) * (current_element -> size));
+        length_data = length_data + (current_element -> size);
+      }
+    }
+  }
+
+  //Set header
+  if(type == IPFIX_TEMPLATE){
+    uint8_t big_endian_template_id[2];
+    convert_to_big_endian((uint8_t *)&(template -> id), big_endian_template_id, 2);
+    memcpy(&ipfix_message[offset], big_endian_template_id, sizeof(uint16_t));
+
+    uint8_t big_endian_count[2];
+    convert_to_big_endian((uint8_t *)&(template -> n), big_endian_count, sizeof(uint16_t));
+    memcpy(&ipfix_message[offset+2], big_endian_count, sizeof(uint16_t));
+  }
+
+  return offset + length_data;
+}
 /*---------------------------------------------------------------------------*/
 ipfix_t *
 create_ipfix()
@@ -209,7 +268,7 @@ add_templates_to_ipfix(ipfix_t *ipfix, template_t *template)
   else{
     template_t *current_template;
     for(current_template = ipfix -> template_head;
-      current_template -> next != NULL; 
+      current_template -> next != NULL;
       current_template = current_template -> next){}
     current_template -> next = template;
   }
@@ -230,6 +289,45 @@ free_ipfix(ipfix_t *ipfix)
 
   memb_free(&MEMB_IPFIX_NAME, ipfix);
 
+}
+/*---------------------------------------------------------------------------*/
+int
+generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
+{
+  int offset = TIPFIX_HEADER_LENGTH:
+
+  // This tiny ipfix accepts only one set
+  template_t *current_template = ipfix -> template_head;
+  if(current_template == NULL){
+    return 0;
+  }
+
+  offset = add_tipfix_records_or_template(ipfix_message, current_template,
+     offset, type);
+
+  // Set TinyIPFIX header with aggressive compression
+  // E1 and E2 are set to 0 for our case.
+  uint16_t set_id = 0;
+  if(type == IPFIX_TEMPLATE){
+    set_id |= (1 << 10);
+  }
+  else{
+    set_id |= (2 << 10);
+  }
+
+  uint16_t length = offset;
+
+  uint16_t id_and_length = e1 || set_id || length;
+  uint8_t big_endian_id_and_length[2];
+  convert_to_big_endian((uint8_t *)&id_and_length, big_endian_id_and_length, 2);
+  memcpy(ipfix_message, big_endian_id_and_length, sizeof(uint16_t));
+
+  uint8_t reduced_seq_no = sequence_number;
+  uint8_t big_endian_seq_no[1];
+  convert_to_big_endian((uint8_t *)&reduced_seq_no, big_endian_seq_no, 1);
+  memcpy(ipfix_message[2], big_endian_seq_no, sizeof(uint8_t));
+
+  return offset;
 }
 /*---------------------------------------------------------------------------*/
 int

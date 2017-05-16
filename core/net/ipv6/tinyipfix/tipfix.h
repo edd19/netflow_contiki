@@ -18,6 +18,7 @@
 #define IPFIX_TEMPLATE_ID 256
 
 #define IPFIX_HEADER_LENGTH 16
+#define TIPFIX_HEADER_LENGTH 3
 #define IPFIX_SET_HEADER_LENGTH 4
 
 #define MAX_IPFIX 3
@@ -69,6 +70,7 @@ ipfix_t *create_ipfix();
 void add_templates_to_ipfix(ipfix_t *ipfix, template_t *template);
 void free_ipfix(ipfix_t *ipfix);
 int generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type);
+int generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type);
 
 // Methods to create ipfix or tipifx message
 int add_ipfix_header(uint8_t *ipfix_message, ipfix_t *ipfix);
