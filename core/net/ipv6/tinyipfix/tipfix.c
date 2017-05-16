@@ -364,6 +364,72 @@ generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
   return offset;
 }
 /*---------------------------------------------------------------------------*/
+int
+tipifx_to_ipfix(uint8_t *tipfix_message, int sender_node_id,
+   uint8_t *ipfix_message)
+{
+  uint8_t set_id = tipfix_message[0];
+  set_id = set_id >> 2;
+  uint8_t tipfix_message_length = tipfix_message[1];
+  uint16_t length = tipfix_message_length - TIPFIX_HEADER_LENGTH +
+    IPFIX_HEADER_LENGTH + IPFIX_SET_HEADER_LENGTH;
+  uint32_t seq_no = tipfix_message[2];
+
+  uint32_t ipfix_export_time = clock_seconds();
+  uint16_t version = IPFIX_VERSION;
+  uint8_t big_endian_version[2];
+  convert_to_big_endian((uint8_t *)&version, big_endian_version, 2);
+  uint8_t *big_endian_length[2];
+  convert_to_big_endian((uint8_t *)&length, big_endian_length, 2)
+  uint8_t big_endian_export_time[4];
+  convert_to_big_endian((uint8_t *)&ipfix_export_time, big_endian_export_time, 4);
+  uint8_t big_endian_sequence_number[4] = ;
+  convert_to_big_endian((uint8_t *)&seq_no, big_endian_sequence_number, 4);
+  uint8_t big_endian_domain_id[4];
+  convert_to_big_endian((uint8_t *)&sender_node_id, big_endian_domain_id, 4);
+
+  memcpy(ipfix_message, big_endian_version, sizeof(uint16_t));
+  memcpy(&ipfix_message[2], big_endian_length, sizeof(uint16_t));
+  memcpy(&ipfix_message[4], big_endian_export_time, sizeof(uint32_t));
+  memcpy(&ipfix_message[8], big_endian_sequence_number, sizeof(uint32_t));
+  memcpy(&ipfix_message[12], big_endian_domain_id, sizeof(uint32_t));
+
+  uint16_t ipfix_set_id = 0;
+  if(set_id == 1){ // template set
+    ipfix_set_id = 2;
+  }
+  else{
+    ipfix_set_id = IPFIX_TEMPLATE_ID;
+  }
+  uint16_t set_length = length - IPFIX_HEADER_LENGTH;
+  uint8_t big_endian_set_id[2];
+  convert_to_big_endian((uint8_t *)&ipfix_set_id, big_endian_set_id, 2);
+  uint8_t big_endian_set_length[2];
+  convert_to_big_endian((uint8_t *)&set_length, big_endian_set_length, 2);
+
+  memcpy(&ipfix_message[IPFIX_HEADER_LENGTH], big_endian_set_id, sizeof(uint16_t));
+  memcpy(&ipfix_message[IPFIX_HEADER_LENGTH+2], big_endian_set_length, sizeof(uint16_t));
+
+  memcpy(&ipfix_message[IPFIX_HEADER_LENGTH+IPFIX_SET_HEADER_LENGTH],
+    &tipfix_message[TIPFIX_HEADER_LENGTH],
+    sizeof(uint8_t)*(tipfix_message_length - TIPFIX_HEADER_LENGTH));
+
+  return length;
+}
+/*---------------------------------------------------------------------------*/
+int
+aggregate_message(uint8_t *first, uint8_t *second, uint8_t *aggrega)
+{
+  uint8_t first_length = first[1];
+  uint8_t second_length = second[1];
+
+  memcpy(aggrega, first, sizeof(uint8_t) * first_length);
+  memcpy(&aggrega[first_length], &second[TIPFIX_HEADER_LENGTH],
+    sizeof(uint8_t) * (second_length- TIPFIX_HEADER_LENGTH));
+  aggrega[1] = first_length + second_length - TIPFIX_HEADER_LENGTH;
+  return first_length + second_length - TIPFIX_HEADER_LENGTH;
+}
+/*---------------------------------------------------------------------------*/
 static void
 convert_to_big_endian(uint8_t *src, uint8_t *dst, int size)
 {
