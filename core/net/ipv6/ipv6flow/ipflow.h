@@ -16,6 +16,9 @@
 #define MAX_FLOWS 10
 #define IPFLOW_EXPORT_INTERVAL 1 // minute
 #define COLLECTOR_UDP_PORT 9995
+
+#define NO_COMPRESSION 1
+#define AGGRESSIVE 2
 /*---------------------------------------------------------------------------*/
 
 /** Structures definition **/
@@ -28,7 +31,7 @@ typedef struct flow{
 /*---------------------------------------------------------------------------*/
 
 /** Method definition **/
-void launch_ipflow();
+void launch_ipflow(int compression_mode);
 int get_process_status();
 int update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);
 int get_number_flows();

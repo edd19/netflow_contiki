@@ -187,7 +187,6 @@ add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int 
 
   return offset + length_data;
 }
-/*---------------------------------------------------------------------------*/4
 /*---------------------------------------------------------------------------*/
 int
 add_tipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int offset, int type)
@@ -294,7 +293,7 @@ free_ipfix(ipfix_t *ipfix)
 int
 generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 {
-  int offset = TIPFIX_HEADER_LENGTH:
+  int offset = TIPFIX_HEADER_LENGTH;
 
   // This tiny ipfix accepts only one set
   template_t *current_template = ipfix -> template_head;
@@ -317,7 +316,7 @@ generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 
   uint16_t length = offset;
 
-  uint16_t id_and_length = e1 || set_id || length;
+  uint16_t id_and_length = set_id || length;
   uint8_t big_endian_id_and_length[2];
   convert_to_big_endian((uint8_t *)&id_and_length, big_endian_id_and_length, 2);
   memcpy(ipfix_message, big_endian_id_and_length, sizeof(uint16_t));
@@ -325,7 +324,7 @@ generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
   uint8_t reduced_seq_no = sequence_number;
   uint8_t big_endian_seq_no[1];
   convert_to_big_endian((uint8_t *)&reduced_seq_no, big_endian_seq_no, 1);
-  memcpy(ipfix_message[2], big_endian_seq_no, sizeof(uint8_t));
+  memcpy(&ipfix_message[2], big_endian_seq_no, sizeof(uint8_t));
 
   return offset;
 }

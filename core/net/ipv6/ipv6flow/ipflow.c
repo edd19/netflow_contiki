@@ -29,19 +29,21 @@ static ipfix_t *ipflow_ipfix = NULL;
 static struct uip_udp_conn *exporter_connection;
 static uip_ipaddr_t collector_addr;
 static flow_t * temp_flow;
+static int compression = NO_COMPRESSION;
 /*---------------------------------------------------------------------------*/
 static void initialize();
 static int cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out);
 static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);
 static ipfix_t * ipfix_for_ipflow();
-static void send_ipfix_message(int type);
+static void send_ipfix_message(int type, int compression);
 /*---------------------------------------------------------------------------*/
 PROCESS(flow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
 void
-launch_ipflow()
+launch_ipflow(int compression_mode)
 {
   status = 1;
+  compression = compression_mode;
   process_start(&flow_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
@@ -183,10 +185,16 @@ ipfix_for_ipflow()
 }
 /*---------------------------------------------------------------------------*/
 static void
-send_ipfix_message(int type)
+send_ipfix_message(int type, int compression)
 {
   uint8_t message[200];
-  int length = generate_ipfix_message(message, ipflow_ipfix, type);
+  int length;
+  if(compression == NO_COMPRESSION){
+    length = generate_ipfix_message(message, ipflow_ipfix, type);
+  }
+  else{
+    length = generate_tipfix_message(message, ipflow_ipfix, type);
+  }
 
   uip_udp_packet_sendto(exporter_connection, &message, length * sizeof(uint8_t),
                         &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
@@ -212,7 +220,7 @@ PROCESS_THREAD(flow_process, ev, data)
   // Send template
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*20*CLOCK_SECOND);
   PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
-  send_ipfix_message(IPFIX_TEMPLATE);
+  send_ipfix_message(IPFIX_TEMPLATE, compression);
 
   // Send data
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
@@ -221,7 +229,7 @@ PROCESS_THREAD(flow_process, ev, data)
     etimer_reset(&periodic);
 
     temp_flow = list_head(LIST_FLOWS_NAME);
-    send_ipfix_message(IPFIX_DATA);
+    send_ipfix_message(IPFIX_DATA, compression);
     flush_flow_table();
   }
 
