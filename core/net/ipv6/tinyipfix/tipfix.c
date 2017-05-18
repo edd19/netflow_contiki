@@ -316,7 +316,7 @@ generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 
   uint16_t length = offset;
 
-  uint16_t id_and_length = set_id || length;
+  uint16_t id_and_length = length;
   uint8_t big_endian_id_and_length[2];
   convert_to_big_endian((uint8_t *)&id_and_length, big_endian_id_and_length, 2);
   memcpy(ipfix_message, big_endian_id_and_length, sizeof(uint16_t));
@@ -379,11 +379,11 @@ tipifx_to_ipfix(uint8_t *tipfix_message, int sender_node_id,
   uint16_t version = IPFIX_VERSION;
   uint8_t big_endian_version[2];
   convert_to_big_endian((uint8_t *)&version, big_endian_version, 2);
-  uint8_t *big_endian_length[2];
-  convert_to_big_endian((uint8_t *)&length, big_endian_length, 2)
+  uint8_t big_endian_length[2];
+  convert_to_big_endian((uint8_t *)&length, big_endian_length, 2);
   uint8_t big_endian_export_time[4];
   convert_to_big_endian((uint8_t *)&ipfix_export_time, big_endian_export_time, 4);
-  uint8_t big_endian_sequence_number[4] = ;
+  uint8_t big_endian_sequence_number[4];
   convert_to_big_endian((uint8_t *)&seq_no, big_endian_sequence_number, 4);
   uint8_t big_endian_domain_id[4];
   convert_to_big_endian((uint8_t *)&sender_node_id, big_endian_domain_id, 4);

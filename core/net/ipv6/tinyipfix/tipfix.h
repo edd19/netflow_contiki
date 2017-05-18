@@ -79,7 +79,7 @@ int add_ipfix_records_or_template(uint8_t *ipfix_message, template_t *template, 
 
 
 //Methods to convert tiny ipfix to ipfix
-int tipifx_to_ipfix(uint8_t *tipfix_message, int length, int sender_node_id, uint8_t *ipfix_message);
+int tipifx_to_ipfix(uint8_t *tipfix_message, int sender_node_id, uint8_t *ipfix_message);
 
 int aggregate_message(uint8_t *first, uint8_t *second, uint8_t *aggrega);
 

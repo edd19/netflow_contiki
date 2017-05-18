@@ -60,6 +60,12 @@ initialize()
   ipflow_ipfix = ipfix_for_ipflow();
 }
 /*---------------------------------------------------------------------------*/
+void
+set_collector_addr(uip_ipaddr_t *addr)
+{
+  collector_addr = *addr;
+}
+/*---------------------------------------------------------------------------*/
 static int
 cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out)
 {
@@ -175,7 +181,7 @@ ipfix_for_ipflow()
 
   add_element_to_template(template, OCTET_DELTA_COUNT);
   add_element_to_template(template, PACKET_DELTA_COUNT);
-  add_element_to_template(template, SOURCE_NODE_ID);
+  //add_element_to_template(template, SOURCE_NODE_ID);
   add_element_to_template(template, DESTINATION_NODE_ID);
 
   ipfix_t *ipfix = create_ipfix();
