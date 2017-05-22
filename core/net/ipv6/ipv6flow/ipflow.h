@@ -19,6 +19,10 @@
 
 #define NO_COMPRESSION 1
 #define AGGRESSIVE 2
+
+#define STANDARD 1
+#define AGGREGATOR 2
+#define GATEWAY 3
 /*---------------------------------------------------------------------------*/
 
 /** Structures definition **/
@@ -31,7 +35,7 @@ typedef struct flow{
 /*---------------------------------------------------------------------------*/
 
 /** Method definition **/
-void launch_ipflow(int compression_mode);
+void launch_ipflow(int compression_mode, int role);
 void set_collector_addr(uip_ipaddr_t *addr);
 int get_process_status();
 int update_flow_table(uip_ipaddr_t *destination, uint16_t size, uint16_t packets);

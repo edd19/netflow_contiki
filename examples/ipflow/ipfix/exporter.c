@@ -171,7 +171,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
   PRINTF(" local/remote port %u/%u\n",
   UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
 
-  launch_ipflow(NO_COMPRESSION);
+  launch_ipflow(NO_COMPRESSION, STANDARD);
 
   etimer_set(&periodic, SEND_INTERVAL);
   while(1) {

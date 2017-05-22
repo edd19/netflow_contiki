@@ -15,8 +15,12 @@
 #include "net/ipv6/ipv6flow/ipflow.h"
 #include "net/ipv6/tinyipfix/tipfix.h"
 #include "sys/node-id.h"
+#include <stdio.h>
+
 
 /*---------------------------------------------------------------------------*/
+#define PRINT6ADDR(addr) printf(" %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x ", ((uint8_t *)addr)[0], ((uint8_t *)addr)[1], ((uint8_t *)addr)[2], ((uint8_t *)addr)[3], ((uint8_t *)addr)[4], ((uint8_t *)addr)[5], ((uint8_t *)addr)[6], ((uint8_t *)addr)[7], ((uint8_t *)addr)[8], ((uint8_t *)addr)[9], ((uint8_t *)addr)[10], ((uint8_t *)addr)[11], ((uint8_t *)addr)[12], ((uint8_t *)addr)[13], ((uint8_t *)addr)[14], ((uint8_t *)addr)[15])
+
 #define LIST_FLOWS_NAME flow_table
 #define MEMB_FLOWS_NAME flow_memb
 MEMB(MEMB_FLOWS_NAME, flow_t, MAX_FLOWS);
@@ -37,14 +41,24 @@ static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t p
 static ipfix_t * ipfix_for_ipflow();
 static void send_ipfix_message(int type, int compression);
 /*---------------------------------------------------------------------------*/
-PROCESS(flow_process, "Ip flows");
+PROCESS(standard_process, "Standard Ip flows");
+PROCESS(aggregator_process, "Ip flows for aggretor nodes");
+PROCESS(gateway_process, "Ip flows for gateway nodes");
 /*---------------------------------------------------------------------------*/
 void
-launch_ipflow(int compression_mode)
+launch_ipflow(int compression_mode, int role)
 {
   status = 1;
   compression = compression_mode;
-  process_start(&flow_process, NULL);
+  if(role == STANDARD){
+    process_start(&standard_process, NULL);
+  }
+  else if(role == AGGREGATOR){
+    // AGGRETOR process
+  }
+  else{
+    //GATEWAY process
+  }
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -171,7 +185,7 @@ get_destination_node_id()
 {
   flow_t *flow = temp_flow;
   temp_flow = temp_flow -> next;
-  return (flow -> destination).u8;
+  return &(flow -> destination).u8[15];
 }
 /*---------------------------------------------------------------------------*/
 static ipfix_t *
@@ -181,7 +195,7 @@ ipfix_for_ipflow()
 
   add_element_to_template(template, OCTET_DELTA_COUNT);
   add_element_to_template(template, PACKET_DELTA_COUNT);
-  //add_element_to_template(template, SOURCE_NODE_ID);
+  add_element_to_template(template, SOURCE_NODE_ID);
   add_element_to_template(template, DESTINATION_NODE_ID);
 
   ipfix_t *ipfix = create_ipfix();
@@ -206,7 +220,7 @@ send_ipfix_message(int type, int compression)
                         &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(flow_process, ev, data)
+PROCESS_THREAD(standard_process, ev, data)
 {
   static struct etimer periodic;
 
@@ -238,6 +252,20 @@ PROCESS_THREAD(flow_process, ev, data)
     send_ipfix_message(IPFIX_DATA, compression);
     flush_flow_table();
   }
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(aggregator_process, ev, data)
+{
+  PROCESS_BEGIN();
+
+  PROCESS_END();
+}
+/*---------------------------------------------------------------------------*/
+PROCESS_THREAD(gateway_process, ev, data)
+{
+  PROCESS_BEGIN();
 
   PROCESS_END();
 }
