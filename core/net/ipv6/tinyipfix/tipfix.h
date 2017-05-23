@@ -10,10 +10,11 @@
 #ifndef TIPFIX_H_
 #define TIPFIX_H_
 /*---------------------------------------------------------------------------*/
+#include "sys/node-id.h"
 
 #define IPFIX_VERSION 10
 #define IPFIX_SEQUENCE 1
-#define IPFIX_DOMAIN_ID 1
+#define IPFIX_DOMAIN_ID node_id
 
 #define IPFIX_TEMPLATE_ID 256
 

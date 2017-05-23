@@ -185,7 +185,10 @@ get_destination_node_id()
 {
   flow_t *flow = temp_flow;
   temp_flow = temp_flow -> next;
-  return &(flow -> destination).u8[15];
+  static uint16_t temp = 0;
+  temp = (flow -> destination).u16[7];
+  temp = UIP_HTONS(temp);
+  return (uint8_t *)&temp;
 }
 /*---------------------------------------------------------------------------*/
 static ipfix_t *

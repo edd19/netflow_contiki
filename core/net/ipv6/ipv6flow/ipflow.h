@@ -52,7 +52,7 @@ uint8_t * get_source_node_id();
 /** INFORMATION ELEMENTS FIELDS **/
 #define OCTET_DELTA_COUNT create_ipfix_information_element(1, 2, 0, &get_octet_delta_count)
 #define PACKET_DELTA_COUNT create_ipfix_information_element(2, 2, 0, &get_packet_delta_count)
-#define DESTINATION_NODE_ID create_ipfix_information_element(32770, 2, 20763, &get_destination_node_id)
-#define SOURCE_NODE_ID create_ipfix_information_element(32771, 2, 20763, &get_source_node_id)
+#define SOURCE_NODE_ID create_ipfix_information_element(32770, 2, 20763, &get_source_node_id)
+#define DESTINATION_NODE_ID create_ipfix_information_element(32771, 2, 20763, &get_destination_node_id)
 
 #endif /* IPFLOW_H_ */
