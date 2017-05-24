@@ -17,10 +17,11 @@
 #include "sys/node-id.h"
 #include <stdio.h>
 /*---------------------------------------------------------------------------*/
+#define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
+
 #define LIST_FLOWS_NAME flow_table
 #define MEMB_FLOWS_NAME flow_memb
 MEMB(MEMB_FLOWS_NAME, flow_t, MAX_FLOWS);
-
 LIST(LIST_FLOWS_NAME);
 
 static int status = 0;
@@ -30,6 +31,7 @@ static struct uip_udp_conn *exporter_connection;
 static uip_ipaddr_t collector_addr;
 static flow_t * temp_flow;
 static int compression = NO_COMPRESSION;
+static int role = STANDARD;
 /*---------------------------------------------------------------------------*/
 static void initialize();
 static int cmp_ipaddr(uip_ipaddr_t *in, uip_ipaddr_t *out);
@@ -37,24 +39,16 @@ static flow_t * create_flow(uip_ipaddr_t *destination, uint16_t size, uint16_t p
 static ipfix_t * ipfix_for_ipflow();
 static void send_ipfix_message(int type, int compression);
 /*---------------------------------------------------------------------------*/
-PROCESS(standard_process, "Standard Ip flows");
-PROCESS(aggregator_process, "Ip flows for aggretor nodes");
-PROCESS(gateway_process, "Ip flows for gateway nodes");
+PROCESS(ipflow_process, "Ip flows");
 /*---------------------------------------------------------------------------*/
 void
-launch_ipflow(int compression_mode, int role)
+launch_ipflow(int compression_mode, int role_mode)
 {
   status = 1;
   compression = compression_mode;
-  if(role == STANDARD){
-    process_start(&standard_process, NULL);
-  }
-  else if(role == AGGREGATOR){
-    // AGGRETOR process
-  }
-  else{
-    //GATEWAY process
-  }
+  role = role_mode;
+
+  process_start(&ipflow_process, NULL);
 }
 /*---------------------------------------------------------------------------*/
 static void
@@ -222,41 +216,6 @@ send_ipfix_message(int type, int compression)
                         &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(standard_process, ev, data)
-{
-  static struct etimer periodic;
-
-  PROCESS_BEGIN();
-
-  initialize();
-
-  exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL);
-  if(exporter_connection == NULL) {
-    PROCESS_EXIT();
-  }
-  udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
-
-  PROCESS_PAUSE();
-
-  // Send template
-  etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*20*CLOCK_SECOND);
-  PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
-  send_ipfix_message(IPFIX_TEMPLATE, compression);
-
-  // Send data
-  etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
-  while(1){
-    PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
-    etimer_reset(&periodic);
-
-    temp_flow = list_head(LIST_FLOWS_NAME);
-    send_ipfix_message(IPFIX_DATA, compression);
-    flush_flow_table();
-  }
-
-  PROCESS_END();
-}
-/*---------------------------------------------------------------------------*/
 static char aggrega[500];
 static int length_aggrega = 0;
 static int received = 0;
@@ -276,7 +235,7 @@ update_aggregate_message(char *msg, int length) {
   received++;
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(aggregator_process, ev, data)
+PROCESS_THREAD(ipflow_process, ev, data)
 {
   static struct etimer periodic;
 
@@ -293,7 +252,12 @@ PROCESS_THREAD(aggregator_process, ev, data)
   PROCESS_PAUSE();
 
   // Send template
-  etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*30*CLOCK_SECOND);
+  if (role == AGGREGATOR) {
+    etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*30*CLOCK_SECOND);
+  }
+  else if (role == STANDARD) {
+    etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*20*CLOCK_SECOND);
+  }
   PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
   send_ipfix_message(IPFIX_TEMPLATE, compression);
 
@@ -301,57 +265,64 @@ PROCESS_THREAD(aggregator_process, ev, data)
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
   while(1){
     PROCESS_YIELD();
-    if(ev == tcpip_event) {
+    if(role == AGGREGATOR && ev == tcpip_event) {
       if(uip_newdata()) {
+        printf("Received data\n");
         update_aggregate_message(uip_appdata, uip_datalen());
       }
     }
+
     if(etimer_expired(&periodic)) {
       temp_flow = list_head(LIST_FLOWS_NAME);
 
-      uint8_t message[200];
-      int length = generate_tipfix_message(message, ipflow_ipfix, type);
-      update_aggregate_message(message, length);
-
-      uip_udp_packet_sendto(exporter_connection, &aggrega, length_aggrega * sizeof(uint8_t),
-                            &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
-
-      flush_flow_table();
+      if(role == AGGREGATOR){
+        printf("Sent aggregate data\n");
+        uint8_t message[200];
+        int length = generate_tipfix_message(message, ipflow_ipfix, compression);
+        update_aggregate_message((char *)message, length);
+        uip_udp_packet_sendto(exporter_connection, &aggrega, length_aggrega * sizeof(uint8_t),
+        &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
+      }
+      else if(role == STANDARD){
+        printf("Sent data\n");
+        send_ipfix_message(IPFIX_DATA, compression);
+      }
       etimer_reset(&periodic);
+      flush_flow_table();
     }
   }
 
   PROCESS_END();
 }
 /*---------------------------------------------------------------------------*/
-PROCESS_THREAD(gateway_process, ev, data)
-{
-  PROCESS_BEGIN();
-
-  initialize();
-
-  exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL);
-  if(exporter_connection == NULL) {
-    PROCESS_EXIT();
-  }
-  udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
-
-  while(1){
-    PROCESS_YIELD();
-    if(ev == tcpip_event) {
-      if(uip_newdata()) {
-        uint16_t sender_node_id = 0;
-        sender_node_id = (UIP_IP_BUF->srcipaddr).u16[7];
-        sender_node_id = UIP_HTONS(sender_node_id);
-        char msg[300];
-        int length = tipifx_to_ipfix(uip_appdata, sender_node_id, msg);
-
-        uip_udp_packet_sendto(exporter_connection, &msg, length * sizeof(uint8_t),
-                              &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
-      }
-    }
-  }
-
-  PROCESS_END();
-}
+// PROCESS_THREAD(gateway_process, ev, data)
+// {
+//   PROCESS_BEGIN();
+//
+//   initialize();
+//
+//   exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL);
+//   if(exporter_connection == NULL) {
+//     PROCESS_EXIT();
+//   }
+//   udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
+//
+//   while(1){
+//     PROCESS_YIELD();
+//     if(ev == tcpip_event) {
+//       if(uip_newdata()) {
+//         uint16_t sender_node_id = 0;
+//         sender_node_id = (UIP_IP_BUF->srcipaddr).u16[7];
+//         sender_node_id = UIP_HTONS(sender_node_id);
+//         char msg[300];
+//         int length = tipifx_to_ipfix(uip_appdata, sender_node_id, msg);
+//
+//         uip_udp_packet_sendto(exporter_connection, &msg, length * sizeof(uint8_t),
+//                               &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
+//       }
+//     }
+//   }
+//
+//   PROCESS_END();
+// }
 /*---------------------------------------------------------------------------*/

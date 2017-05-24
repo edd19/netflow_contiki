@@ -132,6 +132,7 @@ set_global_address(void)
 /*---------------------------------------------------------------------------*/
 PROCESS_THREAD(udp_client_process, ev, data)
 {
+  static struct etimer startup;
   static struct etimer periodic;
   static struct ctimer backoff_timer;
 
@@ -161,8 +162,9 @@ PROCESS_THREAD(udp_client_process, ev, data)
   UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
 
   PROCESS_PAUSE();
-
-  coll_addr = servreg_hack_lookup(SERVICE_ID);
+  etimer_set(&startup, 10 * CLOCK_SECOND);
+  PROCESS_YIELD_UNTIL(etimer_expired(&startup));
+  coll_addr = *servreg_hack_lookup(SERVICE_ID);
   launch_ipflow(AGGRESSIVE, STANDARD);
   set_collector_addr(&coll_addr);
 

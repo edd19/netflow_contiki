@@ -26,7 +26,6 @@
  * This file is part of the Contiki operating system.
  *
  */
-
 #include "contiki.h"
 #include "lib/random.h"
 #include "sys/ctimer.h"

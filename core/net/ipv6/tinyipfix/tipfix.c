@@ -365,7 +365,7 @@ generate_ipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 }
 /*---------------------------------------------------------------------------*/
 int
-tipifx_to_ipfix(uint8_t *tipfix_message, int sender_node_id,
+tipifx_to_ipfix(uint8_t *tipfix_message, uint16_t sender_node_id,
    uint8_t *ipfix_message)
 {
   uint8_t set_id = tipfix_message[0];
