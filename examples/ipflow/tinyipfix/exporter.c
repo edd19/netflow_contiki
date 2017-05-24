@@ -172,8 +172,8 @@ PROCESS_THREAD(udp_client_process, ev, data)
   PRINTF(" local/remote port %u/%u\n",
   UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
 
-  uip_ip6addr(&gateway_addr, 0xaaaa, 0, 0, 0, 0xc30c, 0, 0, 0x001);
   launch_ipflow(AGGRESSIVE, STANDARD);
+  uip_ip6addr(&gateway_addr, 0xaaaa, 0, 0, 0, 0xc30c, 0, 0, 0x001);
   set_collector_addr(&gateway_addr);
 
   etimer_set(&periodic, SEND_INTERVAL);

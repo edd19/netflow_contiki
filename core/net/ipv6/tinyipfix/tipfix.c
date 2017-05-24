@@ -218,7 +218,7 @@ add_tipfix_records_or_template(uint8_t *ipfix_message, template_t *template, int
         if(current_element -> eid != 0){
           uint8_t big_endian_eid[4];
           convert_to_big_endian((uint8_t *)&(current_element -> eid), big_endian_eid, 4);
-          memcpy(&ipfix_message[offset+length_data+4], big_endian_eid, sizeof(uint32_t));
+          memcpy(&ipfix_message[offset+length_data], big_endian_eid, sizeof(uint32_t));
           length_data = length_data + 4;
         }
       }
@@ -422,8 +422,14 @@ aggregate_message(uint8_t *first, uint8_t *second, uint8_t *aggrega)
 {
   uint8_t first_length = first[1];
   uint8_t second_length = second[1];
+  uint8_t set_id = first[0];
+  set_id = set_id >> 2;
 
   memcpy(aggrega, first, sizeof(uint8_t) * first_length);
+  if(set_id == 2){ // only send one template, no need to aggregate
+    return first_length;
+  }
+
   memcpy(&aggrega[first_length], &second[TIPFIX_HEADER_LENGTH],
     sizeof(uint8_t) * (second_length- TIPFIX_HEADER_LENGTH));
   aggrega[1] = first_length + second_length - TIPFIX_HEADER_LENGTH;
