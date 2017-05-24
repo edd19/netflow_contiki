@@ -426,7 +426,7 @@ aggregate_message(uint8_t *first, uint8_t *second, uint8_t *aggrega)
   set_id = set_id >> 2;
 
   memcpy(aggrega, first, sizeof(uint8_t) * first_length);
-  if(set_id == 2){ // only send one template, no need to aggregate
+  if(set_id == 1){ // only send one template, no need to aggregate
     return first_length;
   }
 

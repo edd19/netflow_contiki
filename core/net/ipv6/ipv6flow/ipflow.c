@@ -297,6 +297,7 @@ PROCESS_THREAD(ipflow_process, ev, data)
         update_aggregate_message((char *)message, length);
         uip_udp_packet_sendto(exporter_connection, &aggrega, length_aggrega * sizeof(uint8_t),
         &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
+        length_aggrega = 0;
       }
       else if(role == STANDARD){
         printf("Sent data\n");
