@@ -250,16 +250,17 @@ PROCESS_THREAD(ipflow_process, ev, data)
   udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
 
   PROCESS_PAUSE();
-
-  // Send template
-  if (role == AGGREGATOR) {
-    etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*30*CLOCK_SECOND);
+  if(role != GATEWAY){
+    // Send template
+    if (role == AGGREGATOR) {
+      etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*30*CLOCK_SECOND);
+    }
+    else if (role == STANDARD) {
+      etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*20*CLOCK_SECOND);
+    }
+    PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
+    send_ipfix_message(IPFIX_TEMPLATE, compression);
   }
-  else if (role == STANDARD) {
-    etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*20*CLOCK_SECOND);
-  }
-  PROCESS_YIELD_UNTIL(etimer_expired(&periodic));
-  send_ipfix_message(IPFIX_TEMPLATE, compression);
 
   // Send data
   etimer_set(&periodic, IPFLOW_EXPORT_INTERVAL*60*CLOCK_SECOND);
@@ -272,7 +273,21 @@ PROCESS_THREAD(ipflow_process, ev, data)
       }
     }
 
-    if(etimer_expired(&periodic)) {
+    if(role == GATEWAY && ev == tcpip_event) {
+      if(uip_newdata()) {
+        printf("TinyIpfix to IPFIX\n");
+        uint16_t sender_node_id = 0;
+        sender_node_id = (UIP_IP_BUF->srcipaddr).u16[7];
+        sender_node_id = UIP_HTONS(sender_node_id);
+        int length = tipifx_to_ipfix((uint8_t *)uip_appdata,
+          sender_node_id, (uint8_t *)aggrega);
+
+        uip_udp_packet_sendto(exporter_connection, &aggrega, length * sizeof(uint8_t),
+                              &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
+      }
+    }
+
+    if(etimer_expired(&periodic) && role != GATEWAY) {
       temp_flow = list_head(LIST_FLOWS_NAME);
 
       if(role == AGGREGATOR){
@@ -294,35 +309,4 @@ PROCESS_THREAD(ipflow_process, ev, data)
 
   PROCESS_END();
 }
-/*---------------------------------------------------------------------------*/
-// PROCESS_THREAD(gateway_process, ev, data)
-// {
-//   PROCESS_BEGIN();
-//
-//   initialize();
-//
-//   exporter_connection = udp_new(NULL, UIP_HTONS(COLLECTOR_UDP_PORT), NULL);
-//   if(exporter_connection == NULL) {
-//     PROCESS_EXIT();
-//   }
-//   udp_bind(exporter_connection, UIP_HTONS(COLLECTOR_UDP_PORT));
-//
-//   while(1){
-//     PROCESS_YIELD();
-//     if(ev == tcpip_event) {
-//       if(uip_newdata()) {
-//         uint16_t sender_node_id = 0;
-//         sender_node_id = (UIP_IP_BUF->srcipaddr).u16[7];
-//         sender_node_id = UIP_HTONS(sender_node_id);
-//         char msg[300];
-//         int length = tipifx_to_ipfix(uip_appdata, sender_node_id, msg);
-//
-//         uip_udp_packet_sendto(exporter_connection, &msg, length * sizeof(uint8_t),
-//                               &collector_addr, UIP_HTONS(COLLECTOR_UDP_PORT));
-//       }
-//     }
-//   }
-//
-//   PROCESS_END();
-// }
 /*---------------------------------------------------------------------------*/

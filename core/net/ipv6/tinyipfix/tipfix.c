@@ -316,7 +316,7 @@ generate_tipfix_message(uint8_t *ipfix_message, ipfix_t *ipfix, int type)
 
   uint16_t length = offset;
 
-  uint16_t id_and_length = length;
+  uint16_t id_and_length = set_id + length;
   uint8_t big_endian_id_and_length[2];
   convert_to_big_endian((uint8_t *)&id_and_length, big_endian_id_and_length, 2);
   memcpy(ipfix_message, big_endian_id_and_length, sizeof(uint16_t));
