@@ -36,13 +36,13 @@
 #include "sys/ctimer.h"
 #include "net/ipv6/ipv6flow/ipflow.h"
 #include "benchmark.h"
+#include "servreg-hack.h"
 #include <stdio.h>
 #include <string.h>
 
-#define UDP_CLIENT_PORT 9995
+#define UDP_CLIENT_PORT 4568
 #define UDP_SERVER_PORT 9995
-
-#define UDP_EXAMPLE_ID  190
+#define SERVICE_ID 190
 
 #define DEBUG DEBUG_PRINT
 #include "net/ip/uip-debug.h"
@@ -59,11 +59,6 @@
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;
 static uip_ipaddr_t coll_addr;
-
-static char aggrega[500];
-static int length_aggrega = 0;
-static int received = 0;
-
 /*---------------------------------------------------------------------------*/
 PROCESS(udp_client_process, "UDP client process");
 AUTOSTART_PROCESSES(&udp_client_process);
@@ -76,26 +71,7 @@ tcpip_handler(void)
   if(uip_newdata()) {
     str = uip_appdata;
     str[uip_datalen()] = '\0';
-    printf("DATA recv %d bytes\n", uip_datalen());
-    if(length_aggrega == 0){
-      memcpy(aggrega, uip_appdata, sizeof(char)*uip_datalen());
-      length_aggrega = length_aggrega + uip_datalen();
-    }
-    else{
-      char cpy[500];
-      memcpy(cpy, aggrega, sizeof(char)*length_aggrega);
-    length_aggrega = aggregate_message((uint8_t *)cpy, (uint8_t *)str,
-       (uint8_t *)aggrega);
-    }
-    received++;
-  }
-
-  if(received >= 3){
-    printf("Sent %d bytes aggrega\n", length_aggrega);
-    uip_udp_packet_sendto(client_conn, aggrega, sizeof(char)*length_aggrega,
-                          &coll_addr, UIP_HTONS(UDP_SERVER_PORT));
-    length_aggrega = 0;
-    received = 0;
+    printf("DATA recv '%s'\n", str);
   }
 }
 /*---------------------------------------------------------------------------*/
@@ -142,18 +118,6 @@ set_global_address(void)
   uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
   uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
   uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
-
-/* The choice of server address determines its 6LoPAN header compression.
- * (Our address will be compressed Mode 3 since it is derived from our link-local address)
- * Obviously the choice made here must also be selected in udp-server.c.
- *
- * For correct Wireshark decoding using a sniffer, add the /64 prefix to the 6LowPAN protocol preferences,
- * e.g. set Context 0 to aaaa::.  At present Wireshark copies Context/128 and then overwrites it.
- * (Setting Context 0 to aaaa::1111:2222:3333:4444 will report a 16 bit compressed address of aaaa::1111:22ff:fe33:xxxx)
- *
- * Note the IPCMV6 checksum verification depends on the correct uncompressed addresses.
- */
-
 #if 0
 /* Mode 1 - 64 bits inline */
    uip_ip6addr(&server_ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
@@ -170,7 +134,6 @@ PROCESS_THREAD(udp_client_process, ev, data)
 {
   static struct etimer periodic;
   static struct ctimer backoff_timer;
-  static uip_ipaddr_t aggregator_addr;
 
   PROCESS_BEGIN();
 
@@ -178,6 +141,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
   set_global_address();
   launch_energest();
+  servreg_hack_init();
 
   PRINTF("UDP client process started\n");
 
@@ -196,10 +160,11 @@ PROCESS_THREAD(udp_client_process, ev, data)
   PRINTF(" local/remote port %u/%u\n",
   UIP_HTONS(client_conn->lport), UIP_HTONS(client_conn->rport));
 
-  uip_ip6addr(&aggregator_addr, 0xaaaa, 0, 0, 0, 0xc30c, 0, 0, 0x0002);
-  uip_ip6addr(&coll_addr, 0xaaaa, 0, 0, 0, 0, 0, 0, 1);
-  launch_ipflow(AGGRESSIVE);
-  set_collector_addr(&aggregator_addr);
+  PROCESS_PAUSE();
+
+  coll_addr = servreg_hack_lookup(SERVICE_ID);
+  launch_ipflow(AGGRESSIVE, STANDARD);
+  set_collector_addr(&coll_addr);
 
   etimer_set(&periodic, SEND_INTERVAL);
   while(1) {
